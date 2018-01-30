@@ -3,6 +3,7 @@
   Protect against non integer or out of range values from being entered
     Check for 0<=X<=255
     Hi
+    This is another test
 *********************************************************************************************************/
 #include <mcp_can.h>
 #include <SPI.h>
@@ -36,7 +37,7 @@ boolean potFlag = false;          // user wants to start pot values in CAN messa
 int editInt = 0;
 unsigned int CANaddress = 528;
 
-unsigned char canMsg[3] = {0x90, 0x3F, 0xFC}; //SHOULD BE CHAR
+unsigned char canMsg[3] = {0x90, 0xD0, 0x07}; //SHOULD BE CHAR
 
 
 void loop() {
@@ -155,7 +156,7 @@ void address(){
   Serial.println(CANaddress);
   addressFlag= false;
 }
-
+/*
 void pot()
 {
    // read the value from the sensor:
@@ -176,3 +177,4 @@ void pot()
     delay(50);
 
 }
+*/
