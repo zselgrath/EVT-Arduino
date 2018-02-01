@@ -48,7 +48,8 @@
                 "${workspaceRoot}",
                 "C:/Program Files (x86)/Arduino/hardware/arduino/avr/libraries/CAN_BUS_Shield-master",
                 "C:/Program Files (x86)/Arduino/hardware/arduino/avr/libraries/SPI/src",
-                "C:/Program Files (x86)/Arduino/hardware/arduino/avr/cores/arduino"
+                "C:/Program Files (x86)/Arduino/hardware/arduino/avr/cores/arduino",
+                "C:/Program Files (x86)/Arduino/hardware/tools/avr/avr/include"
             ],
             "defines": [
                 "_DEBUG",
@@ -60,7 +61,9 @@
                     "${workspaceRoot}",
                     "C:/Program Files (x86)/Arduino/hardware/arduino/avr/libraries/CAN_BUS_Shield-master",
                     "C:/Program Files (x86)/Arduino/hardware/arduino/avr/libraries/SPI/src",
-                    "C:/Program Files (x86)/Arduino/hardware/arduino/avr/cores/arduino"                ],
+                    "C:/Program Files (x86)/Arduino/hardware/arduino/avr/cores/arduino",
+                    "C:/Program Files (x86)/Arduino/hardware/tools/avr/avr/include"
+                ],
                 "limitSymbolsToIncludedHeaders": false,
                 "databaseFilename": ""
             }
