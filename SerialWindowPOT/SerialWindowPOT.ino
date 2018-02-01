@@ -2,7 +2,8 @@
   TO DO:
   Protect against non integer or out of range values from being entered
     Check for 0<=X<=255
-    Hi lol << yee
+    Zack typed this
+    Last line i'll add
 *********************************************************************************************************/
 #include <mcp_can.h>
 #include <SPI.h>
@@ -36,7 +37,9 @@ boolean potFlag = false;          // user wants to start pot values in CAN messa
 int editInt = 0;
 unsigned int CANaddress = 528;
 
-unsigned char canMsg[3] = {0x90, 0x3F, 0xFC}; //SHOULD BE CHAR
+unsigned char canMsg[3] = {0x90, 0xD0, 0x07}; //This corresponds to decimal values of 144, 208, 7,
+                                              //which sends the actual torque value of 2000 (07D0)
+                                              // to the motor contoller's 144 (0x90) register
 
 
 void loop() {
