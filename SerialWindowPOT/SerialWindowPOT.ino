@@ -10,10 +10,10 @@ with one or more peripheral devices quickly. Can set up a master-slave condition
 /*CAN BUS library*/
 #include "mcp_can.h"
 
-//Potentiometer (pot)
+/*Will add when potentiometer method is added
 int sensorPin = A0;
-// ??????????????????????????????????????????????
 int sensorValue = 0;
+*/
 const int SPI_CS_PIN = 9; //The Seeed studio can bus shields use pin 9 for SPI communication to the board
 MCP_CAN CAN(SPI_CS_PIN);  //Declaring a new instance of MCP can with the default pin
 char rx_byte = 0;
@@ -97,9 +97,9 @@ void setFlag()
 
 void send()
 {
-  printCanMsg();
-  delay(50);
-  Serial.print("CAN message sent to ID " + CANaddress);
+  CAN.sendMsgBuf(CANaddress, 0, 3, canMsg); //Sending the actual CAN message using the mcp_can library
+  printCanMsg(); //For debugging only, remove once deployed
+  delay(50); //adjust according to maximum communication rate
 }
 
 void edit()
@@ -130,6 +130,7 @@ void address()
   addressFlag = false;
 }
 
+/*
 void pot()
 {
   //read potentiometer data from pin
@@ -142,12 +143,13 @@ void pot()
   printCanMsg();
   delay(50);
 }
+*/
 
 void printCanMsg()
 {
   // print the data
-  CAN.sendMsgBuf(CANaddress, 0, 3, canMsg);
   for (int i = 0; i < 3; i++)
     Serial.print(canMsg[i] + '\t');
   Serial.println("");
+  Serial.print("CAN message sent to ID " + CANaddress);
 }
