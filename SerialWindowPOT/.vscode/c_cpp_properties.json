@@ -46,8 +46,9 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceRoot}",
-                "C:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\libraries",
-                "C:\\Users\\zselg\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.6.20\\cores\\arduino"
+                "C:/Program Files (x86)/Arduino/hardware/arduino/avr/libraries/CAN_BUS_Shield-master",
+                "C:/Program Files (x86)/Arduino/hardware/arduino/avr/libraries/SPI/src",
+                "C:/Program Files (x86)/Arduino/hardware/arduino/avr/cores/arduino"
             ],
             "defines": [
                 "_DEBUG",
@@ -57,9 +58,9 @@
             "browse": {
                 "path": [
                     "${workspaceRoot}",
-                    "C:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\libraries",                    
-                    "C:\\Users\\zselg\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.6.20\\cores\\arduino"
-                ],
+                    "C:/Program Files (x86)/Arduino/hardware/arduino/avr/libraries/CAN_BUS_Shield-master",
+                    "C:/Program Files (x86)/Arduino/hardware/arduino/avr/libraries/SPI/src",
+                    "C:/Program Files (x86)/Arduino/hardware/arduino/avr/cores/arduino"                ],
                 "limitSymbolsToIncludedHeaders": false,
                 "databaseFilename": ""
             }
