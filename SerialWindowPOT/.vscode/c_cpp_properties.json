@@ -47,7 +47,8 @@
             "includePath": [
                 "${workspaceRoot}",
                 "C:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\libraries",
-                "C:\\Users\\zselg\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.6.20\\cores\\arduino"
+                "C:\\Users\\zselg\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.6.20\\cores\\arduino",
+                "C:\\Users\\flatitude\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.6.20\\cores\\arduino"
             ],
             "defines": [
                 "_DEBUG",
@@ -58,7 +59,9 @@
                 "path": [
                     "${workspaceRoot}",
                     "C:\\Program Files (x86)\\Arduino\\hardware\\arduino\\avr\\libraries",                    
-                    "C:\\Users\\zselg\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.6.20\\cores\\arduino"
+                    "C:\\Users\\zselg\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.6.20\\cores\\arduino",
+                    "C:\\Users\\flatitude\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.6.20\\cores\\arduino"
+
                 ],
                 "limitSymbolsToIncludedHeaders": false,
                 "databaseFilename": ""
