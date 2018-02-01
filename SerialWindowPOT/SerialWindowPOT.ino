@@ -155,14 +155,14 @@ void address(){
   Serial.println(CANaddress);
   addressFlag= false;
 }
-
+/*
 void pot()
 {
    // read the value from the sensor:
-    potVal = analogRead(sensorPin);
+   // potVal = analogRead(sensorPin);
     
-    byte high = highByte(potVal);
-    byte low = lowByte(potVal);
+    //byte high = highByte(potVal);
+    //byte low = lowByte(potVal);
 
     canMsg[0] = 0x90;
     canMsg[1] = low & 0xFF;
@@ -174,5 +174,5 @@ void pot()
       Serial.print("\t");
     }
     delay(50);
-
 }
+*/
