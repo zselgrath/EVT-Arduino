@@ -10,7 +10,20 @@
 
 const int SPI_CS_PIN = 9;
 MCP_CAN CAN(SPI_CS_PIN);
-
+char rx_byte = 0;
+String rx_str = "";
+String command_str = "";
+unsigned char len = 0; //length of the data received
+unsigned char buf[8];  //array that stores the data in the message
+boolean editFlag = false;         // user will edit the CAN Message
+boolean addressFlag = false;      // user will edit the receiving CAN Address 
+boolean sendFlag = false;         // user wants the existing CAN message to be sent
+boolean continuousFlag = false;   // user wants to continuously send torque values in CAN messages
+int editInt = 0;
+unsigned int canAddress = 528;
+unsigned char canMsg[3] = {0x90, 0xD0, 0x07}; //This corresponds to decimal values of 144, 208, 7,
+                                              //which sends the actual torque value of 2000 (07D0)
+                                              // to the motor contoller's 144 (0x90) register
 void setup() {
   Serial.begin(115200);
   while (CAN_OK != CAN.begin(CAN_250KBPS))              // init can bus : baudrate = 500k
@@ -25,21 +38,6 @@ void setup() {
   delay(100);
 }
 
-char rx_byte = 0;
-String rx_str = "";
-String command_str = "";
-boolean editFlag = false;         // user will edit the CAN Message
-boolean addressFlag = false;      // user will edit the receiving CAN Address 
-boolean sendFlag = false;         // user wants the existing CAN message to be sent
-boolean continuousFlag = false;   // user wants to continuously send torque values in CAN messages
-int editInt = 0;
-unsigned int CANaddress = 528;
-
-unsigned char canMsg[3] = {0x90, 0xD0, 0x07}; //This corresponds to decimal values of 144, 208, 7,
-                                              //which sends the actual torque value of 2000 (07D0)
-                                              // to the motor contoller's 144 (0x90) register
-
-
 void loop() {
   
   readSerial();
@@ -53,6 +51,8 @@ void loop() {
   else{
     setFlag();
   }
+
+  readMessage();
 
 }
 
@@ -82,6 +82,14 @@ void setFlag(){
       sendMessage();
       command_str = "";
     }
+    if (command_str == "disable") {
+      disable();
+      command_str = "";
+    }
+    if (command_str == "enable") {
+      enable();
+      command_str = "";
+    }
     if (command_str == "continuous") {
       Serial.println("continuous is WIP, entering loop");
       command_str = "";
@@ -94,8 +102,28 @@ void setFlag(){
     }
 }
 
+void readMessage(){
+  if(CAN_MSGAVAIL == CAN.checkReceive())            // check if data coming
+    {
+        CAN.readMsgBuf(&len, buf);    // read data,  len: data length, buf: data buf
+
+        unsigned int canId = CAN.getCanId();
+        
+        Serial.println("-----------------------------");
+        Serial.print("Get data from ID: ");
+        Serial.println(canId, HEX);
+
+        for(int i = 0; i<len; i++)    // print the data
+        {
+            Serial.print(buf[i], HEX);
+            Serial.print("\t");
+        }
+        Serial.println();
+    }
+}
+
 void sendMessage(){
-  CAN.sendMsgBuf(CANaddress, 0, 3, canMsg);
+  CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
   delay(50);
   for(int i = 0; i<3; i++)    // print the data
     {
@@ -103,7 +131,7 @@ void sendMessage(){
     }
   Serial.println("");
   Serial.print("CAN message sent to ID ");
-  Serial.println(CANaddress);
+  Serial.println(canAddress);
 }
 
 void editMessage(){ //lol works yay
@@ -125,20 +153,21 @@ void editMessage(){ //lol works yay
 }
 
 void editAddress(){
-  CANaddress = command_str.toInt();
+  canAddress = command_str.toInt();
   command_str = "";
   Serial.println("");
   Serial.print("Address set to: ");
-  Serial.println(CANaddress);
+  Serial.println(canAddress);
   addressFlag= false;
 }
 
 void continuous(){ //enter a loop where the arduino constantly reads in torque values over serial and sends them if they change
     int sentValue = 0;
     int lastValue = 0;
-
+    enable();
     while(command_str != "stop") //while the command is an integer or word other than stop
     {
+      readMessage();
       readSerial();
       sentValue = command_str.toInt();
       if (sentValue != lastValue){ //if the data changed from the last value that was received
@@ -147,7 +176,7 @@ void continuous(){ //enter a loop where the arduino constantly reads in torque v
         canMsg[2] = highByte(sentValue) & 0xFF;
         Serial.print("changed to ");
         Serial.println(sentValue);
-        CAN.sendMsgBuf(CANaddress, 0, 3, canMsg);
+        CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
         lastValue = sentValue;
         delay(20);
       }
@@ -156,8 +185,24 @@ void continuous(){ //enter a loop where the arduino constantly reads in torque v
     canMsg[0] = 0x90;
     canMsg[1] = 0;
     canMsg[2] = 0;
-    CAN.sendMsgBuf(CANaddress, 0, 3, canMsg);
+    CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
     //TODO: add enable/disable methods
-    Serial.println("STOPPED");
+    Serial.println("***STOPPED***");
    
+}
+
+void disable(){
+  canMsg[0] = 0x51;
+  canMsg[1] = 04 & 0xFF;
+  canMsg[2] = 00 & 0xFF;
+  CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
+  Serial.println("***DISABLED***");
+}
+
+void enable(){
+  canMsg[0] = 0x51;
+  canMsg[1] = 00 & 0xFF;
+  canMsg[2] = 00 & 0xFF;
+  CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
+  Serial.println("***ENABLED***");
 }
