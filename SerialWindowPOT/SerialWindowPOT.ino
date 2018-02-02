@@ -134,8 +134,8 @@ void editAddress(){
 }
 
 void continuous(){ //enter a loop where the arduino constantly reads in torque values over serial and sends them if they change
-    int sentValue = 0
-    int lastValue = 0
+    int sentValue = 0;
+    int lastValue = 0;
 
     while(command_str != "stop") //while the command is an integer or word other than stop
     {
@@ -145,9 +145,10 @@ void continuous(){ //enter a loop where the arduino constantly reads in torque v
         canMsg[0] = 0x90;
         canMsg[1] = lowByte(sentValue) & 0xFF;
         canMsg[2] = highByte(sentValue) & 0xFF;
+        Serial.print("changed to ");
         Serial.println(sentValue);
         CAN.sendMsgBuf(CANaddress, 0, 3, canMsg);
-        lastValue = sentValue
+        lastValue = sentValue;
         delay(20);
       }
     }
