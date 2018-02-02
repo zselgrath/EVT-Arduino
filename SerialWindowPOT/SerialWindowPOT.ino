@@ -133,23 +133,30 @@ void editAddress(){
   addressFlag= false;
 }
 
-void continuous(){
-    while(command_str != "stop")
+void continuous(){ //enter a loop where the arduino constantly reads in torque values over serial and sends them if they change
+    int sentValue = 0
+    int lastValue = 0
+
+    while(command_str != "stop") //while the command is an integer or word other than stop
     {
       readSerial();
-      int sentValue = command_str.toInt();
-      canMsg[0] = 0x90;
-      canMsg[1] = lowByte(sentValue) & 0xFF;
-      canMsg[2] = highByte(sentValue) & 0xFF;
-      Serial.println(sentValue);
-      CAN.sendMsgBuf(CANaddress, 0, 3, canMsg);
-      delay(50);
+      sentValue = command_str.toInt();
+      if (sentValue != lastValue){ //if the data changed from the last value that was received
+        canMsg[0] = 0x90;
+        canMsg[1] = lowByte(sentValue) & 0xFF;
+        canMsg[2] = highByte(sentValue) & 0xFF;
+        Serial.println(sentValue);
+        CAN.sendMsgBuf(CANaddress, 0, 3, canMsg);
+        lastValue = sentValue
+        delay(20);
+      }
     }
-    command_str = "";
+    command_str = ""; //"stop" was sent, cancelling torque values and disabling motor controller
     canMsg[0] = 0x90;
     canMsg[1] = 0;
     canMsg[2] = 0;
     CAN.sendMsgBuf(CANaddress, 0, 3, canMsg);
+    //TODO: add enable/disable methods
     Serial.println("STOPPED");
    
 }
