@@ -59,7 +59,6 @@ void loop() {
 }
 
 void readSerial(){
-  Serial.println("NOTHING");
   while (Serial.available() > 0) {    // is a character available?
       
       rx_byte = Serial.read();       // get the character
@@ -87,12 +86,12 @@ void setFlag(){
     }
     if (command_str == "read")
     {
-      editFlag = true;
+      readFlag = true;
       command_str = "";
     }
     if (command_str == "mute")
     {
-      editFlag = false;
+      readFlag = false;
       command_str = "";
     }
     if (command_str == "disable") {

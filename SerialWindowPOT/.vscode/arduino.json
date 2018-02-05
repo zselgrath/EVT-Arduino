@@ -1,5 +1,5 @@
 {
     "board": "arduino:avr:uno",
     "sketch": "SerialWindowPOT.ino",
-    "port": "COM4"
+    "port": "COM9"
 }
