@@ -35,6 +35,7 @@ void setup() {
   Serial.println("CAN BUS Shield init ok!");
   delay(100);
   Serial.println("Valid commands: send , edit , address, continuous");
+  Serial.println("enable , disable , read, mute");
   delay(100);
 }
 
@@ -121,7 +122,7 @@ void readMessage(){
 
         unsigned int canId = CAN.getCanId();
         
-        Serial.print("New Message");
+        Serial.print("New Message: ");
         Serial.println(canId, HEX);
 
         for(int i = 0; i<len; i++)    // print the data
