@@ -17,8 +17,8 @@ unsigned char len = 0; //length of the data received
 unsigned char buf[8];  //array that stores the data in the message
 boolean editFlag = false;         // user will edit the CAN Message
 boolean addressFlag = false;      // user will edit the receiving CAN Address 
-boolean sendFlag = false;         // user wants the existing CAN message to be sent
-boolean continuousFlag = false;   // user wants to continuously send torque values in CAN messages
+boolean readFlag = false;         // user wants to continuously print can messages over serial
+boolean unusedFlag = false;      // user wants to ...
 int editInt = 0;
 unsigned int canAddress = 528;
 unsigned char canMsg[3] = {0x90, 0xD0, 0x07}; //This corresponds to decimal values of 144, 208, 7,
@@ -35,6 +35,7 @@ void setup() {
   Serial.println("CAN BUS Shield init ok!");
   delay(100);
   Serial.println("Valid commands: send , edit , address, continuous");
+  Serial.println("enable , disable , read, mute");
   delay(100);
 }
 
@@ -54,7 +55,9 @@ void loop() {
     }
   }
 
-  readMessage();
+  if (readFlag){
+    readMessage();
+  }
 
 }
 
@@ -82,6 +85,16 @@ void setFlag(){
     }
     if (command_str == "send") {
       sendMessage();
+      command_str = "";
+    }
+    if (command_str == "read")
+    {
+      readFlag = true;
+      command_str = "";
+    }
+    if (command_str == "mute")
+    {
+      readFlag = false;
       command_str = "";
     }
     if (command_str == "disable") {
@@ -119,8 +132,7 @@ void readMessage(){
 
         unsigned int canId = CAN.getCanId();
         
-        Serial.println("-----------------------------");
-        Serial.print("Get data from ID: ");
+        Serial.print("New Message: ");
         Serial.println(canId, HEX);
 
         for(int i = 0; i<len; i++)    // print the data
