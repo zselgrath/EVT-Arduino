@@ -42,14 +42,16 @@ void loop() {
   
   readSerial();
   
-  if(editFlag && command_str != ""){
-    editMessage();
-  }
-  else if(addressFlag && command_str != ""){
-    editAddress();
-  }
-  else{
-    setFlag();
+  if (command_str != ""){
+    if(editFlag){
+      editMessage();
+    }
+    else if(addressFlag){
+      editAddress();
+    }
+    else{
+      setFlag();
+    }
   }
 
   readMessage();
@@ -88,6 +90,14 @@ void setFlag(){
     }
     if (command_str == "enable") {
       enable();
+      command_str = "";
+    }
+    if (command_str == "voltage") {
+      bamocarRequest(0x66,0x00);
+      command_str = "";
+    }
+    if (command_str == "RPM") {
+      bamocarRequest(0x30,0x00);
       command_str = "";
     }
     if (command_str == "continuous") {
@@ -205,4 +215,12 @@ void enable(){
   canMsg[2] = 00 & 0xFF;
   CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
   Serial.println("***ENABLED***");
+}
+
+void bamocarRequest(int internalReg, int cycle){
+  canMsg[0] = 0x3D;
+  canMsg[1] = cycle & 0xFF;
+  canMsg[2] = internalReg & 0xFF;
+  CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
+  Serial.println("***REQUESTED***");
 }
