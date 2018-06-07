@@ -49,7 +49,8 @@
                 "C:/Program Files (x86)/Arduino/hardware/arduino/avr/libraries/CAN_BUS_Shield-master",
                 "C:/Program Files (x86)/Arduino/hardware/arduino/avr/libraries/SPI/src",
                 "C:/Program Files (x86)/Arduino/hardware/arduino/avr/cores/arduino",
-                "C:/Program Files (x86)/Arduino/hardware/tools/avr/avr/include"
+                "C:/Program Files (x86)/Arduino/hardware/tools/avr/avr/include",
+                "C:\\Users\\zselg\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.6.20\\cores\\arduino"
             ],
             "defines": [
                 "_DEBUG",
@@ -62,11 +63,14 @@
                     "C:/Program Files (x86)/Arduino/hardware/arduino/avr/libraries/CAN_BUS_Shield-master",
                     "C:/Program Files (x86)/Arduino/hardware/arduino/avr/libraries/SPI/src",
                     "C:/Program Files (x86)/Arduino/hardware/arduino/avr/cores/arduino",
-                    "C:/Program Files (x86)/Arduino/hardware/tools/avr/avr/include"
+                    "C:/Program Files (x86)/Arduino/hardware/tools/avr/avr/include",
+                    "C:\\Users\\zselg\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.6.20\\cores\\arduino"
                 ],
                 "limitSymbolsToIncludedHeaders": false,
                 "databaseFilename": ""
-            }
+            },
+            "cStandard": "c11",
+            "cppStandard": "c++17"
         }
     ],
     "version": 3
