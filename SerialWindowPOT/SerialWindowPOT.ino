@@ -122,6 +122,11 @@ void setFlag(){
       addressFlag = true;
       command_str = "";
     }
+    if (command_str == "stop"){
+      stop();
+      command_str = "";
+    }
+
 }
 
 void readMessage(){
@@ -218,6 +223,14 @@ void disable(){
   canMsg[2] = 00 & 0xFF;
   CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
   Serial.println("***DISABLED***");
+}
+
+void stop(){
+  canMsg[0] = 0x90;
+  canMsg[1] = 0;
+  canMsg[2] = 0;
+  CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
+  Serial.println("***Stopped***");
 }
 
 void enable(){
