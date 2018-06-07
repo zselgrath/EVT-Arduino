@@ -224,20 +224,21 @@ void continuous(){ //enter a loop where the arduino constantly reads in torque v
    
 }
 
+void stop()
+{
+  canMsg[0] = 0x90;
+  canMsg[1] = 0;
+  canMsg[2] = 0;
+  CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
+  Serial.println("***Stopped***");
+}
+
 void disable(){
   canMsg[0] = 0x51;
   canMsg[1] = 04 & 0xFF;
   canMsg[2] = 00 & 0xFF;
   CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
   Serial.println("***DISABLED***");
-}
-
-void stop(){
-  canMsg[0] = 0x90;
-  canMsg[1] = 0;
-  canMsg[2] = 0;
-  CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
-  Serial.println("***Stopped***");
 }
 
 void enable(){
