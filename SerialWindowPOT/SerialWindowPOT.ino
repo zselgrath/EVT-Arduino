@@ -2,8 +2,8 @@
   TO DO:
   Protect against non integer or out of range values from being entered
     Check for 0<=X<=255
-    This is for chase to edit
-    And here's another line
+    Chase edited this
+    Whomsdtve is thou
 *********************************************************************************************************/
 #include <mcp_can.h>
 #include <SPI.h>
