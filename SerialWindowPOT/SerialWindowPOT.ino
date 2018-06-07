@@ -105,11 +105,11 @@ void setFlag(){
       command_str = "";
     }
     if (command_str == "voltage") {
-      bamocarRequest(0x66,0x00);
+      bamocarRequest(0x5F,0x00);
       command_str = "";
     }
     if (command_str == "RPM") {
-      bamocarRequest(0x30,0x00);
+      bamocarRequest(0xA8,0x64);
       command_str = "";
     }
     if (command_str == "continuous") {
@@ -138,6 +138,13 @@ void readMessage(){
         
         Serial.print("New Message: ");
         Serial.println(canId, HEX);
+
+        if(buf[0] = 0xA8){
+          Serial.println("I'm getting RPM");
+          int localRPM = buf[1] + buf[2]*256;
+          double newLocalRPM = (localRPM * 0.1526);
+          Serial.println(newLocalRPM);
+        }
 
         for(int i = 0; i<len; i++)    // print the data
         {
@@ -243,8 +250,8 @@ void enable(){
 
 void bamocarRequest(int internalReg, int cycle){
   canMsg[0] = 0x3D;
-  canMsg[1] = cycle & 0xFF;
-  canMsg[2] = internalReg & 0xFF;
+  canMsg[1] = internalReg & 0xFF;
+  canMsg[2] = cycle & 0xFF;
   CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
   Serial.println("***REQUESTED***");
 }
