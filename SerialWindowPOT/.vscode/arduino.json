@@ -1,6 +1,6 @@
 {
     "board": "arduino:avr:mega",
     "sketch": "SerialWindowPOT.ino",
-    "port": "COM3",
+    "port": "COM5",
     "configuration": "cpu=atmega2560"
 }
