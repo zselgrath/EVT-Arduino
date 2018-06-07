@@ -6,6 +6,8 @@
 *********************************************************************************************************/
 #include <mcp_can.h>
 #include <SPI.h>
+#include <LiquidCrystal.h>
+LiquidCrystal lcd(18, 24, 34, 36, 38, 40);
 
 const int SPI_CS_PIN = 9;
 MCP_CAN CAN(SPI_CS_PIN);
@@ -23,7 +25,12 @@ unsigned int canAddress = 528;
 unsigned char canMsg[3] = {0x90, 0xD0, 0x07}; //This corresponds to decimal values of 144, 208, 7,
                                               //which sends the actual torque value of 2000 (07D0)
                                               // to the motor contoller's 144 (0x90) register
+int localRPM;
+int newLocalRPM;
+                  
 void setup() {
+  lcd.begin(16,2);
+  lcd.print("RPM is:");
   Serial.begin(115200);
   while (CAN_OK != CAN.begin(CAN_250KBPS))              // init can bus : baudrate = 500k
     {
@@ -34,7 +41,7 @@ void setup() {
   Serial.println("CAN BUS Shield init ok!");
   delay(100);
   Serial.println("Valid commands: send , edit , address, continuous");
-  Serial.println("enable , disable , read, mute");
+  Serial.println("enable , disable , read, mute, stop");
   delay(100);
 }
 
@@ -57,7 +64,9 @@ void loop() {
   if (readFlag){
     readMessage();
   }
-
+//Output information to LCD screen
+lcd.setCursor(0,1);
+lcd.print((buf[1] + buf[2]*256) * 0.1526);
 }
 
 void readSerial(){
@@ -256,3 +265,13 @@ void bamocarRequest(int internalReg, int cycle){
   CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
   Serial.println("***REQUESTED***");
 }
+
+
+
+
+
+
+
+
+
+
