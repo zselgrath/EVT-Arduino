@@ -43,8 +43,6 @@ void setup() {
   Serial.println("Valid commands: send , edit , address, continuous");
   Serial.println("enable , disable , read, mute, stop");
   delay(100);
-  lcd.setCursor(0, 1);
-  lcd.print("Ready");
 }
 
 void loop() {
@@ -267,13 +265,3 @@ void bamocarRequest(int internalReg, int cycle){
   CAN.sendMsgBuf(canAddress, 0, 3, canMsg);
   Serial.println("***REQUESTED***");
 }
-
-
-
-
-
-
-
-
-
-
