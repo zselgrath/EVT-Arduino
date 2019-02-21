@@ -149,11 +149,11 @@ void setup()
   defaultedMask.id = 0;
   bamStat.statics.rxAddress = 0x210;
   canBus.begin(canBps, defaultedMask, canAltTxRx, canAltTxRx);
-  tft.setCursor(0,140);
+  tft.setCursor(0, 140);
   tft.println("BEGIN CAN");
   delay(200);
-  //tft.println(initCANData1(canBus));
-
+  tft.println(initCANData1(canBus));
+  delay(1000);
 }
 
 void loop(void)
@@ -165,57 +165,81 @@ void loop(void)
     microsec = micros();
   #endif
 
-    msg.id = 528;
-    msg.ext = 0;
-    msg.rtr = 0;
-    msg.len = 3;
-    msg.timeout = 0;
-    msg.buf[0] = 0x90;
-    msg.buf[1] = 0x64;
-    msg.buf[2] = 0x00;
-    tft.println(canBus.write(msg));
-    delay(200);
-
-  /* UNUSED FOR NOW
   if (canBus.available())
   {
     canBus.read(rxmsg);
+    tft.setTextColor(ILI9341_YELLOW);
     tft.setCursor(130, 100);
-    tft.print(rxmsg.id);
-    delay(20);
-  }*/
+    tft.print(rxmsg.len);
+    delay(2000);
+  }
 
   TSPoint p = ts.getPoint();
   p.x = (((p.x * resX) / 1023) - 29) * 1.3; //convert to pixels for ease of use
   p.y = (((p.y * resy) / 1023) - 20) * 1.25;
 
-  #ifdef DEBUG
-    if (p.z > ts.pressureThreshhold)
-    {
-      drawDebug(p);
-    }
-  #endif
-  
+#ifdef DEBUG
+  if (p.z > ts.pressureThreshhold)
+  {
+    drawDebug(p);
+  }
+#endif
+
   //only update the button UI if the screen has been pressed
   if (p.z > ts.pressureThreshhold)
   {
     drawButtonUI();
+    switch (buttonCheck(p)){
+      case 1:
+        msg.id = 528;
+        msg.len = 3;
+        msg.timeout = 20;
+        msg.buf[0] = 0x51;
+        msg.buf[1] = 0x04;
+        msg.buf[2] = 0x00;
+        canBus.write(msg);
+        delay(500);
+      case 2:
+        msg.id = 528;
+        msg.len = 3;
+        msg.timeout = 20;
+        msg.buf[0] = 0x51;
+        msg.buf[1] = 0x00;
+        msg.buf[2] = 0x00;
+        canBus.write(msg);
+        delay(500);
+      default:
+        bamStat.commanded.signedTorque = pow((((320 - p.y) - 160) / 8), 3);
+        msg.id = 528;
+        msg.len = 3;
+        msg.timeout = 20;
+        msg.buf[0] = 0x90;
+        msg.buf[1] = lowByte(bamStat.commanded.signedTorque);
+        msg.buf[2] = highByte(bamStat.commanded.signedTorque);
+        tft.setCursor(0, 160);
+        tft.fillRect(0, 160, 140, 15, ILI9341_BLACK);
+        tft.print(canBus.write(msg));
+        tft.print(" ");
+        tft.print(bamStat.commanded.signedTorque);
+        break;
+    }
   }
-  
 
-  #ifdef DEBUG
+#ifdef DEBUG
   if (p.z > ts.pressureThreshhold)
   {
     drawFPS();
   }
-  else if (mainLoops > 250){ //dont want to do this too often cause limits performance
+  else if (mainLoops > 250)
+  { //dont want to do this too often cause limits performance
     drawFPS();
     mainLoops = 0;
   }
-  else{
+  else
+  {
     mainLoops++;
   }
-  #endif
+#endif
 }
 
 void drawDebug(TSPoint &_p)
@@ -262,73 +286,28 @@ void drawButtonUI()
   tft.setTextColor(ILI9341_YELLOW);
 }
 
-int initCANData1(FlexCAN &_canBus){
+inline int initCANData1(FlexCAN &_canBus){
   msg.id = 528;
-  msg.ext = 0;
-  msg.rtr = 0;
-  msg.len = 8;
-  msg.timeout = 0;
-  msg.buf[0] = 0x51;
-  msg.buf[1] = 0x00;
-  msg.buf[2] = 0x00;
-  msg.buf[3] = 0x00;
-  msg.buf[4] = 0x00;
-  msg.buf[5] = 0x00;
-  msg.buf[6] = 0x00;
-  msg.buf[7] = 0x00;
+  msg.len = 3;
+  msg.timeout = 20;
+  msg.buf[0] = 0x3D;
+  msg.buf[1] = 0xA8;
+  msg.buf[2] = 0x64;
   return _canBus.write(msg);
 }
 
-int initCANData2(FlexCAN &_canBus)
+int buttonCheck(TSPoint &_p)
 {
-  msg.id = 528;
-  msg.ext = 0;
-  msg.rtr = 0;
-  msg.len = 8;
-  msg.timeout = 0;
-  msg.buf[0] = 0x00;
-  msg.buf[1] = 0x00;
-  msg.buf[2] = 0x00;
-  msg.buf[3] = 0x00;
-  msg.buf[4] = 0x00;
-  msg.buf[5] = 0x00;
-  msg.buf[6] = 0x00;
-  msg.buf[7] = 0x51;
-  return _canBus.write(msg);
-}
-
-int initCANData3(FlexCAN &_canBus)
-{
-  msg.id = 528;
-  msg.ext = 0;
-  msg.rtr = 0;
-  msg.len = 8;
-  msg.timeout = 0;
-  msg.buf[0] = 0x00;
-  msg.buf[1] = 0x00;
-  msg.buf[2] = 0x00;
-  msg.buf[3] = 0x00;
-  msg.buf[4] = 0x00;
-  msg.buf[5] = 0x51;
-  msg.buf[6] = 0x00;
-  msg.buf[7] = 0x00;
-  return _canBus.write(msg);
-}
-
-int initCANData4(FlexCAN &_canBus)
-{
-  msg.id = 528;
-  msg.ext = 0;
-  msg.rtr = 0;
-  msg.len = 8;
-  msg.timeout = 0;
-  msg.buf[0] = 0x00;
-  msg.buf[1] = 0x00;
-  msg.buf[2] = 0x51;
-  msg.buf[3] = 0x00;
-  msg.buf[4] = 0x00;
-  msg.buf[5] = 0x00;
-  msg.buf[6] = 0x00;
-  msg.buf[7] = 0x00;
-  return _canBus.write(msg);
+  if (_p.x > 10 && _p.x < buttonWidth)
+  {
+    if (_p.y > uiStartHeight && _p.y < disableHeight)
+    {
+      return 1;
+    }
+    else if (_p.y > (320 - enableHeight) && _p.y < 320)
+    {
+      return 2;
+    }
+    return 0;
+  }
 }
