@@ -46,7 +46,7 @@
 
 //--CAN bus--
 #include "FlexCAN.h"
-#define canBps 500000
+#define canBps 250000
 #define canAltTxRx 1
 
 //--Global Vars--
@@ -133,7 +133,7 @@ struct bamocarStatus
 TouchScreen ts = TouchScreen(XP, YP, XM, YM, 318);
 ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCLK, TFT_MISO);
 CAN_filter_t defaultedMask; //Needed to do full declaration for can bus on secondary pins
-FlexCAN canBus;
+FlexCAN canBus(250000);
 static CAN_message_t msg, rxmsg;
 bamocarStatus bamStat;
 
@@ -149,7 +149,11 @@ void setup()
   defaultedMask.id = 0;
   bamStat.statics.rxAddress = 0x210;
   canBus.begin(canBps, defaultedMask, canAltTxRx, canAltTxRx);
-  initContinuousData(canBus);
+  tft.setCursor(0,140);
+  tft.println("BEGIN CAN");
+  delay(200);
+  //tft.println(initCANData1(canBus));
+
 }
 
 void loop(void)
@@ -161,11 +165,25 @@ void loop(void)
     microsec = micros();
   #endif
 
-  if(canBus.available()){
+    msg.id = 528;
+    msg.ext = 0;
+    msg.rtr = 0;
+    msg.len = 3;
+    msg.timeout = 0;
+    msg.buf[0] = 0x90;
+    msg.buf[1] = 0x64;
+    msg.buf[2] = 0x00;
+    tft.println(canBus.write(msg));
+    delay(200);
+
+  /* UNUSED FOR NOW
+  if (canBus.available())
+  {
     canBus.read(rxmsg);
+    tft.setCursor(130, 100);
     tft.print(rxmsg.id);
     delay(20);
-  }
+  }*/
 
   TSPoint p = ts.getPoint();
   p.x = (((p.x * resX) / 1023) - 29) * 1.3; //convert to pixels for ease of use
@@ -241,14 +259,76 @@ void drawButtonUI()
   tft.fillRect(0, (320-enableHeight), buttonWidth, enableHeight, ILI9341_GREEN);
   tft.setCursor(24, 300);
   tft.print(F("ENABLE"));
+  tft.setTextColor(ILI9341_YELLOW);
 }
 
-void initContinuousData(FlexCAN &_canBus){
-  CAN_message_t msgContinuousData;
-  msgContinuousData.id = bamStat.statics.rxAddress;
-  msgContinuousData.len = 3;
-  msgContinuousData.buf[0] = 0x3D;
-  msgContinuousData.buf[1] = 0xA8;
-  msgContinuousData.buf[2] = 0x64;
-  _canBus.write(msgContinuousData);
+int initCANData1(FlexCAN &_canBus){
+  msg.id = 528;
+  msg.ext = 0;
+  msg.rtr = 0;
+  msg.len = 8;
+  msg.timeout = 0;
+  msg.buf[0] = 0x51;
+  msg.buf[1] = 0x00;
+  msg.buf[2] = 0x00;
+  msg.buf[3] = 0x00;
+  msg.buf[4] = 0x00;
+  msg.buf[5] = 0x00;
+  msg.buf[6] = 0x00;
+  msg.buf[7] = 0x00;
+  return _canBus.write(msg);
+}
+
+int initCANData2(FlexCAN &_canBus)
+{
+  msg.id = 528;
+  msg.ext = 0;
+  msg.rtr = 0;
+  msg.len = 8;
+  msg.timeout = 0;
+  msg.buf[0] = 0x00;
+  msg.buf[1] = 0x00;
+  msg.buf[2] = 0x00;
+  msg.buf[3] = 0x00;
+  msg.buf[4] = 0x00;
+  msg.buf[5] = 0x00;
+  msg.buf[6] = 0x00;
+  msg.buf[7] = 0x51;
+  return _canBus.write(msg);
+}
+
+int initCANData3(FlexCAN &_canBus)
+{
+  msg.id = 528;
+  msg.ext = 0;
+  msg.rtr = 0;
+  msg.len = 8;
+  msg.timeout = 0;
+  msg.buf[0] = 0x00;
+  msg.buf[1] = 0x00;
+  msg.buf[2] = 0x00;
+  msg.buf[3] = 0x00;
+  msg.buf[4] = 0x00;
+  msg.buf[5] = 0x51;
+  msg.buf[6] = 0x00;
+  msg.buf[7] = 0x00;
+  return _canBus.write(msg);
+}
+
+int initCANData4(FlexCAN &_canBus)
+{
+  msg.id = 528;
+  msg.ext = 0;
+  msg.rtr = 0;
+  msg.len = 8;
+  msg.timeout = 0;
+  msg.buf[0] = 0x00;
+  msg.buf[1] = 0x00;
+  msg.buf[2] = 0x51;
+  msg.buf[3] = 0x00;
+  msg.buf[4] = 0x00;
+  msg.buf[5] = 0x00;
+  msg.buf[6] = 0x00;
+  msg.buf[7] = 0x00;
+  return _canBus.write(msg);
 }
