@@ -21,7 +21,7 @@
 //--Touch: 212
 //--Non: 11111
 
-#define DEBUG
+//#define DEBUG
 
 #include "SPI.h"
 
@@ -63,8 +63,6 @@ bool newBLinkState = false;
 
 //--Global Vars--
 
-//Keep global uptime in millis
-uint32_t upTime = 0;
 //Struct to contain all vars that are accessed frequently 
 struct bamocarStatus
 {
@@ -139,6 +137,7 @@ struct bamocarStatus
 #define buttonWidth 120
 #define disableHeight 85
 #define enableHeight 85
+int blinktimer = 0;
 
 struct touchPoint{
   uint16_t touchX = 0;
@@ -157,7 +156,7 @@ bamocarStatus bamStat;
 
 //--Debug Only Defines--
 #ifdef DEBUG
-uint64_t microsec = 0;
+    uint64_t microsec = 0;
 char mainLoops = 0;
 #endif
 
@@ -169,7 +168,9 @@ void setup()
   tft.setTextColor(ILI9341_YELLOW);
   tft.setTextSize(2);
   drawButtonUI();
-  
+  newBLinkState = true;
+  drawButtonUI();
+
   defaultedMask.ext = 0;
   defaultedMask.rtr = 0;
   defaultedMask.id = 0;
@@ -199,9 +200,14 @@ void setup()
 //-----------------MAIN LOOP-----------------
 void loop()
 {
-  //Keep global uptime in millis
-  upTime = millis();
-  #ifdef DEBUG
+
+blinktimer++;
+if (blinktimer>1000){
+  newBLinkState = true;
+  blinktimer = 0;
+}
+
+#ifdef DEBUG
     //start timer for FPS
     microsec = micros();
   #endif
@@ -246,7 +252,6 @@ void loop()
     }
     else if (mainLoops > 250) //dont want to do this too often cause limits performance
     {
-      newBLinkState = true;
       drawFPS();
       mainLoops = 0;
     }
@@ -279,11 +284,6 @@ void drawDebug()
   }
 }
 
-bool sendOK(){
-  byte stat = bamStat.commanded.lastMessageStatus;
-  return (stat == 14 | stat == 15 | stat==254);
-}
-
 void drawFPS(){
   microsec = micros() - microsec;
   tft.fillRect(140, 0, resX, uiStartHeight, ILI9341_BLACK);
@@ -293,6 +293,12 @@ void drawFPS(){
   tft.println((int)(1 / (microsec / 1e6)));
 }
 #endif
+
+bool sendOK()
+{
+  byte stat = bamStat.commanded.lastMessageStatus;
+  return (stat == 14 | stat == 15 | stat == 254);
+}
 
 void drawButtonUI()
 {
