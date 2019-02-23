@@ -38,24 +38,38 @@
 #include <stdint.h>
 #include "TouchScreen.h"
 #define resX 240
-#define resy 320
+#define resY 320
 #define YP A14 // must be an analog pin, use "An" notation!
 #define XM A15 // must be an analog pin, use "An" notation!
 #define YM A16 // can be a digital pin
 #define XP A17 // can be a digital pin
+bool blinkState = false;
+bool newBLinkState = false;
 
 //--CAN bus--
 #include "FlexCAN.h"
 #define canBps 250000
 #define canAltTxRx 1
 
+//--Bamocar Regisers
+#define regReadBamocarData        0x3D
+#define regSysModeBits            0x51
+#define regLogicReadBits          0xD8
+#define regTorqueCommanded        0x90
+#define regSignedRPM              0xA8
+#define regSignedPackCurrent      0x20
+#define regSignedPhaseCurrent     0x5F
+#define regRPMmax                 0xC8
+
 //--Global Vars--
 
 //Keep global uptime in millis
 uint32_t upTime = 0;
+//Struct to contain all vars that are accessed frequently 
 struct bamocarStatus
 {
   union logicBitUnion{
+    //order 0th bit top 
     struct logicReadBits //0xd8 - these exactly mirror the Bamocar
     {
       bool LMT1;  //UNUSED
@@ -78,14 +92,15 @@ struct bamocarStatus
     uint16_t critWord;
   } critStat;
   union statusBitUnion{
+    //order 0th bit top
     struct statusBits //0x51 - these exactly mirror the Bamocar
     {
       bool UNUS3;   //UNUSED
       bool SPD0;    //UNUSED
       bool DISABLE; //THE DIGITAL DISABLE BIT
       bool C_OFF;   //UNUSED
-      bool TSTA;    //2nd step to enabling output, enabled 200ms after RFE
-      bool ILIM;    //1st step to enabling output
+      bool TSTA;    //TEST
+      bool ILIM;    //TEST
       bool NCLIP;   //TEST
       bool MIX;     //TEST
       bool SYNC;    //TEST
@@ -102,6 +117,7 @@ struct bamocarStatus
   struct commandedParams
   {
     int16_t signedTorque; //0x90
+    char lastMessageStatus;
   } commanded;
   struct updatedParams
   {
@@ -113,30 +129,39 @@ struct bamocarStatus
   struct staticParams
   {
     int16_t Nmax; //0xc8
-    uint8_t rxAddress;
+    uint16_t rxAddress;
     //int16_t PWMfreq;            //0x5a[22-20] of 32bit integer
   } statics;
 };
-
-#ifdef DEBUG
-  uint64_t microsec = 0;
-  char mainLoops = 0;
-#endif
 
 //--UI Defines--
 #define uiStartHeight 15
 #define buttonWidth 120
 #define disableHeight 85
-#define enableHeight 30
+#define enableHeight 85
+
+struct touchPoint{
+  uint16_t touchX = 0;
+  uint16_t touchY = 0;
+  char touchID = 0;
+  bool isPressed = false;
+} touchPoint;
 
 //--Object instantiation--
-TouchScreen ts = TouchScreen(XP, YP, XM, YM, 318);
+TouchScreen ts = TouchScreen(XP, YP, XM, YM, 318); //rx is resistance across x pins of touchscreen
 ILI9341_t3 tft = ILI9341_t3(TFT_CS, TFT_DC, TFT_RST, TFT_MOSI, TFT_SCLK, TFT_MISO);
 CAN_filter_t defaultedMask; //Needed to do full declaration for can bus on secondary pins
 FlexCAN canBus(250000);
 static CAN_message_t msg, rxmsg;
 bamocarStatus bamStat;
 
+//--Debug Only Defines--
+#ifdef DEBUG
+uint64_t microsec = 0;
+char mainLoops = 0;
+#endif
+
+//-----------------SETUP-----------------
 void setup()
 {
   tft.begin();
@@ -144,19 +169,35 @@ void setup()
   tft.setTextColor(ILI9341_YELLOW);
   tft.setTextSize(2);
   drawButtonUI();
+  
   defaultedMask.ext = 0;
   defaultedMask.rtr = 0;
   defaultedMask.id = 0;
   bamStat.statics.rxAddress = 0x210;
   canBus.begin(canBps, defaultedMask, canAltTxRx, canAltTxRx);
+
   tft.setCursor(0, 140);
   tft.println("BEGIN CAN");
   delay(200);
-  tft.println(initCANData1(canBus));
-  delay(1000);
-}
 
-void loop(void)
+  bamocarDisable();
+  tft.print(F("DISABLE: "));
+  tft.println(sendOK() ? "OK" : "ERR");
+  delay(100);
+
+  bamocarCoast();
+  tft.print(F("COAST: "));
+  tft.println(sendOK() ? "OK" : "ERR");
+  delay(100);
+
+  bamocarQueueData();
+  tft.print(F("QUEUE: "));
+  tft.println(sendOK() ? "OK" : "ERR");
+  delay(100);
+}
+//-----------------END SETUP-----------------
+//-----------------MAIN LOOP-----------------
+void loop()
 {
   //Keep global uptime in millis
   upTime = millis();
@@ -174,140 +215,220 @@ void loop(void)
     delay(2000);
   }
 
-  TSPoint p = ts.getPoint();
-  p.x = (((p.x * resX) / 1023) - 29) * 1.3; //convert to pixels for ease of use
-  p.y = (((p.y * resy) / 1023) - 20) * 1.25;
-
-#ifdef DEBUG
-  if (p.z > ts.pressureThreshhold)
-  {
-    drawDebug(p);
-  }
-#endif
-
   //only update the button UI if the screen has been pressed
-  if (p.z > ts.pressureThreshhold)
+  inputCheck();
+  if (touchPoint.isPressed)
   {
-    drawButtonUI();
-    switch (buttonCheck(p)){
-      case 1:
-        msg.id = 528;
-        msg.len = 3;
-        msg.timeout = 20;
-        msg.buf[0] = 0x51;
-        msg.buf[1] = 0x04;
-        msg.buf[2] = 0x00;
-        canBus.write(msg);
-        delay(500);
-      case 2:
-        msg.id = 528;
-        msg.len = 3;
-        msg.timeout = 20;
-        msg.buf[0] = 0x51;
-        msg.buf[1] = 0x00;
-        msg.buf[2] = 0x00;
-        canBus.write(msg);
-        delay(500);
-      default:
-        bamStat.commanded.signedTorque = pow((((320 - p.y) - 160) / 8), 3);
-        msg.id = 528;
-        msg.len = 3;
-        msg.timeout = 20;
-        msg.buf[0] = 0x90;
-        msg.buf[1] = lowByte(bamStat.commanded.signedTorque);
-        msg.buf[2] = highByte(bamStat.commanded.signedTorque);
-        tft.setCursor(0, 160);
-        tft.fillRect(0, 160, 140, 15, ILI9341_BLACK);
-        tft.print(canBus.write(msg));
-        tft.print(" ");
-        tft.print(bamStat.commanded.signedTorque);
-        break;
+    switch (touchPoint.touchID)
+    {
+    case 1:
+      bamocarDisable();
+      break;
+    case 2:
+      bamocarEnable();
+      break;
+    case 0:
+      bamStat.commanded.signedTorque = pow((((resY - touchPoint.touchY) - 160) / 8), 3);
+      bamocarTorque(bamStat.commanded.signedTorque);
+      break;
+    default:
+      break;
     }
   }
+  
+  drawButtonUI();
 
-#ifdef DEBUG
-  if (p.z > ts.pressureThreshhold)
-  {
-    drawFPS();
-  }
-  else if (mainLoops > 250)
-  { //dont want to do this too often cause limits performance
-    drawFPS();
-    mainLoops = 0;
-  }
-  else
-  {
-    mainLoops++;
-  }
-#endif
+  #ifdef DEBUG
+    if (touchPoint.isPressed)
+    {
+      drawFPS();
+      drawDebug();
+    }
+    else if (mainLoops > 250) //dont want to do this too often cause limits performance
+    {
+      newBLinkState = true;
+      drawFPS();
+      mainLoops = 0;
+    }
+    else
+    {
+      mainLoops++;
+    }
+  #endif
 }
+//-----------------END MAIN LOOP-----------------
 
-void drawDebug(TSPoint &_p)
+//DEBUG ONLY METHODS
+#ifdef DEBUG
+void drawDebug()
 {
   tft.drawRect(220, 300, 20, 20, ILI9341_RED);
+  tft.fillRect(buttonWidth, 305, (resX-buttonWidth-20), 15, ILI9341_BLACK);
   tft.fillRect(0, 0, 140, uiStartHeight, ILI9341_BLACK);
   tft.setCursor(0, 0);
   tft.print(F("X:"));
-  tft.print(_p.x);
+  tft.print(touchPoint.touchX);
   tft.setCursor(75, 0);
   tft.print(F("Y:"));
-  tft.println(_p.y);
-  tft.fillCircle(_p.x, _p.y, 1, ILI9341_CYAN);
-  if (_p.x > 220 && _p.y > 300)
+  tft.println(touchPoint.touchY);
+  tft.fillCircle(touchPoint.touchX, touchPoint.touchY, 1, ILI9341_CYAN);
+  if (touchPoint.touchX > 220 && touchPoint.touchY > 300)
   {
     tft.fillScreen(ILI9341_BLACK);
+    drawButtonUI();
   }
 }
 
-#ifdef DEBUG
+bool sendOK(){
+  byte stat = bamStat.commanded.lastMessageStatus;
+  return (stat == 14 | stat == 15 | stat==254);
+}
+
 void drawFPS(){
   microsec = micros() - microsec;
-  tft.fillRect(140, 0, 240, uiStartHeight, ILI9341_BLACK);
+  tft.fillRect(140, 0, resX, uiStartHeight, ILI9341_BLACK);
   tft.setCursor(140, 0);
   tft.setTextColor(ILI9341_YELLOW);
   tft.print(F("Hz:"));
   tft.println((int)(1 / (microsec / 1e6)));
-  //delay(20);
 }
 #endif
 
 void drawButtonUI()
 {
-  tft.setTextColor(ILI9341_BLACK);
-  tft.setCursor(0,0);
-  //Draw DISABLE
-  tft.fillRect(0, uiStartHeight, buttonWidth, disableHeight, ILI9341_RED);
-  tft.setCursor(18,50);
-  tft.print(F("DISABLE"));
-  //Draw Enable
-  tft.fillRect(0, (320-enableHeight), buttonWidth, enableHeight, ILI9341_GREEN);
-  tft.setCursor(24, 300);
-  tft.print(F("ENABLE"));
-  tft.setTextColor(ILI9341_YELLOW);
+  if(newBLinkState){  
+    tft.setCursor(0, 0);
+     //Draw DISABLE
+    if (bamStat.genStat.genBools.DISABLE)
+    {
+      if (blinkState)
+      {
+        tft.fillRect(0, uiStartHeight, buttonWidth, disableHeight, ILI9341_RED);
+        tft.setCursor(18, 50);
+        tft.setTextColor(ILI9341_BLACK);
+        tft.print(F("DISABLE"));
+        blinkState = !blinkState;
+      }
+      else
+      {
+        tft.fillRect(0, uiStartHeight, buttonWidth, disableHeight, ILI9341_BLACK);
+        tft.setCursor(18, 50);
+        tft.setTextColor(ILI9341_RED);
+        tft.print(F("DISABLE"));
+        blinkState = !blinkState;
+      }
+    }
+    //Draw Enable
+    else
+    {
+      if (blinkState)
+      {
+        tft.fillRect(0, (resY - enableHeight), buttonWidth, enableHeight, ILI9341_GREEN);
+        tft.setCursor(24, 270);
+        tft.setTextColor(ILI9341_BLACK);
+        tft.print(F("ENABLE"));
+        blinkState = !blinkState;
+      }
+      else
+      {
+        tft.fillRect(0, (resY - enableHeight), buttonWidth, enableHeight, ILI9341_BLACK);
+        tft.setCursor(24, 270);
+        tft.setTextColor(ILI9341_GREEN);
+        tft.print(F("ENABLE"));
+        blinkState = !blinkState;
+      }
+    }
+  newBLinkState = false;
+  }
 }
 
-inline int initCANData1(FlexCAN &_canBus){
-  msg.id = 528;
+void inputCheck()
+{
+  TSPoint p = ts.getPoint();
+  if (p.z > ts.pressureThreshhold)
+  {
+    touchPoint.isPressed = true;
+    touchPoint.touchX = (((p.x * resX) / 1023) - 29) * 1.3; //convert to pixels for ease of use
+    touchPoint.touchY = (((p.y * resY) / 1023) - 20) * 1.25;
+
+    if (touchPoint.touchX > 10 && touchPoint.touchX < buttonWidth) //if the button side is pressed
+    {
+      if (touchPoint.touchY > uiStartHeight && touchPoint.touchY < disableHeight) //if disable is pressed
+      {
+        touchPoint.touchID = 1;
+      }
+      else if (touchPoint.touchY > (resY - enableHeight) && touchPoint.touchY < resY) //if enable is pressed
+      {
+        touchPoint.touchID = 2;
+      }
+    }
+    else
+    {
+      touchPoint.touchID = 0; //if no buttons are pressed, assume other UI element
+    }
+  }
+  else
+  {
+    touchPoint.isPressed = false;
+  }
+}
+
+//Flips the disable bit to 0
+void bamocarEnable(){
+  bamocarCoast();
+  bamStat.genStat.genBools.DISABLE = false;
+  msg.id = bamStat.statics.rxAddress;
   msg.len = 3;
   msg.timeout = 20;
-  msg.buf[0] = 0x3D;
-  msg.buf[1] = 0xA8;
-  msg.buf[2] = 0x64;
-  return _canBus.write(msg);
+  msg.buf[0] = regSysModeBits;
+  msg.buf[1] = 0x00;
+  msg.buf[2] = 0x00;
+  bamStat.commanded.lastMessageStatus = canBus.write(msg);
+  //delay(500);
 }
 
-int buttonCheck(TSPoint &_p)
+//Flips the disable bit to 1
+void bamocarDisable()
 {
-  if (_p.x > 10 && _p.x < buttonWidth)
-  {
-    if (_p.y > uiStartHeight && _p.y < disableHeight)
-    {
-      return 1;
-    }
-    else if (_p.y > (320 - enableHeight) && _p.y < 320)
-    {
-      return 2;
-    }
-    return 0;
-  }
+  bamocarCoast();
+  bamStat.genStat.genBools.DISABLE = true;
+  msg.id = bamStat.statics.rxAddress;
+  msg.len = 3;
+  msg.timeout = 20;
+  msg.buf[0] = regSysModeBits;
+  msg.buf[1] = 0x04;
+  msg.buf[2] = 0x00;
+  bamStat.commanded.lastMessageStatus = canBus.write(msg);
+  //delay(500);
+}
+
+//Writes to the Torque Setpoint register in the speed controller
+void bamocarTorque(int16_t _torque)
+{
+  msg.id = bamStat.statics.rxAddress;
+  msg.len = 3;
+  msg.timeout = 20;
+  msg.buf[0] = regTorqueCommanded;
+  msg.buf[1] = lowByte(bamStat.commanded.signedTorque);
+  msg.buf[2] = highByte(bamStat.commanded.signedTorque);
+  bamStat.commanded.lastMessageStatus = canBus.write(msg);
+}
+
+//Write a torque value of 0 to disable the position PID loop and coast but
+//DOES NOT DISABLE HV OUTPUT
+void bamocarCoast(){
+  bamStat.commanded.signedTorque = 0;
+  bamocarTorque(bamStat.commanded.signedTorque);
+  delay(20);
+}
+
+void bamocarQueueData()
+{
+  msg.id = bamStat.statics.rxAddress;
+  msg.len = 3;
+  msg.timeout = 20;
+  msg.buf[0] = regReadBamocarData;
+  msg.buf[1] = regSignedRPM;
+  msg.buf[2] = 0x64;
+  bamStat.commanded.lastMessageStatus = canBus.write(msg);
 }
