@@ -12,7 +12,7 @@
 #define MASK_2048_CHANID 0x7800
 #define MASK_2048_SXPOS 0x07FF 
 
-#define RXCENTER 511
+#define RXCENTER 1000
 #define RXTRAVEL 358 // (511 center - 63 trim) / 1,25 maxTravel
 #define RXMIN 0//153 // 511center - 358travel
 #define RXMAX 1022//869 // 511center + 358travel
