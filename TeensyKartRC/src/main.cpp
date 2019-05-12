@@ -11,13 +11,15 @@ ros::Publisher rcPublisher("/mavros/rc/in",&rcin);
 //Defines
 #define ledPin 13
 SatelliteReceiver SpektrumRx;
-//#define USE_USBCON
+#define USE_USBCON
 
 //Setup
 void setup(){
   pinMode(ledPin, OUTPUT);
+  nh.getHardware()->setBaud(57600);
   nh.initNode();
   nh.advertise(rcPublisher);
+  
   Serial1.begin(115200);
   Serial1.setTimeout(1);
 }
@@ -73,8 +75,6 @@ void loop()
 
   rcPublisher.publish(&rcin);
   nh.spinOnce();
-
-  
 }
 
 /*DOC
