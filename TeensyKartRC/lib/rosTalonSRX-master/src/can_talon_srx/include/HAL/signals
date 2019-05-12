@@ -1,0 +1,91 @@
+void Set(double value);
+
+auto generated getters
+CTR_Code GetFault_OverTemp(int &param);
+CTR_Code GetFault_UnderVoltage(int &param);
+CTR_Code GetFault_ForLim(int &param);
+CTR_Code GetFault_RevLim(int &param);
+CTR_Code GetFault_HardwareFailure(int &param);
+CTR_Code GetFault_ForSoftLim(int &param);
+CTR_Code GetFault_RevSoftLim(int &param);
+CTR_Code GetStckyFault_OverTemp(int &param);
+CTR_Code GetStckyFault_UnderVoltage(int &param);
+CTR_Code GetStckyFault_ForLim(int &param);
+CTR_Code GetStckyFault_RevLim(int &param);
+CTR_Code GetStckyFault_ForSoftLim(int &param);
+CTR_Code GetStckyFault_RevSoftLim(int &param);
+CTR_Code GetAppliedThrottle(int &param);
+CTR_Code GetCloseLoopErr(int &param);
+CTR_Code GetFeedbackDeviceSelect(int &param);
+CTR_Code GetModeSelect(int &param);
+CTR_Code GetLimitSwitchEn(int &param);
+CTR_Code GetLimitSwitchClosedFor(int &param);
+CTR_Code GetLimitSwitchClosedRev(int &param);
+CTR_Code GetSensorPosition(int &param);
+CTR_Code GetSensorVelocity(int &param);
+CTR_Code GetCurrent(double &param);
+CTR_Code GetBrakeIsEnabled(int &param);
+CTR_Code GetEncPosition(int &param);
+CTR_Code GetEncVel(int &param);
+CTR_Code GetEncIndexRiseEvents(int &param);
+CTR_Code GetQuadApin(int &param);
+CTR_Code GetQuadBpin(int &param);
+CTR_Code GetQuadIdxpin(int &param);
+CTR_Code GetAnalogInWithOv(int &param);
+CTR_Code GetAnalogInVel(int &param);
+CTR_Code GetTemp(double &param);
+CTR_Code GetBatteryV(double &param);
+CTR_Code GetResetCount(int &param);
+CTR_Code GetResetFlags(int &param);
+CTR_Code GetFirmVers(int &param);
+CTR_Code GetPulseWidthPosition(int &param);
+CTR_Code GetPulseWidthVelocity(int &param);
+CTR_Code GetPulseWidthRiseToFallUs(int &param);
+CTR_Code GetPulseWidthRiseToRiseUs(int &param);
+CTR_Code IsPulseWidthSensorPresent(int &param);
+
+auto generated setters
+CTR_Code SetDemand(int param);
+CTR_Code SetOverrideLimitSwitchEn(int param);
+CTR_Code SetFeedbackDeviceSelect(int param);
+CTR_Code SetRevMotDuringCloseLoopEn(int param);
+CTR_Code SetOverrideBrakeType(int param);
+CTR_Code SetModeSelect(int param);
+CTR_Code SetModeSelect(int modeSelect,int demand);
+CTR_Code SetProfileSlotSelect(int param);
+CTR_Code SetRampThrottle(int param);
+CTR_Code SetRevFeedbackSensor(int param);
+
+
+echo "int32 Demand" > SetDemand.msg
+echo "int32 OverrideLimitSwitchEn" > SetOverrideLimitSwitchEn.msg
+echo "int32 FeedbackDeviceSelect" > SetFeedbackDeviceSelect.msg
+echo "int32 RevMotDuringCloseLoopEn" > SetRevMotDuringCloseLoopEn.msg
+echo "int32 OverrideBrakeType" > SetOverrideBrakeType.msg
+echo -e "int32 ModeSelect" > SetModeSelect.msg
+echo -e "int32 ModeSelect\nint32 Demand" > SetModeAndDemandSelect.msg
+echo "int32 ProfileSlotSelect" > SetProfileSlotSelect.msg
+echo "int32 RampThrottle" > SetRampThrottle.msg
+echo "int32 RevFeedbackSensor" > SetRevFeedbackSensor.msg
+
+echo "int32 param" > SetDemand.msg
+echo "int32 param" > SetOverrideLimitSwitchEn.msg
+echo "int32 param" > SetFeedbackDeviceSelect.msg
+echo "int32 param" > SetRevMotDuringCloseLoopEn.msg
+echo "int32 param" > SetOverrideBrakeType.msg
+echo "int32 param" > SetModeSelect.msg
+echo -e "int32 param\nint32 demand" > SetModeSelectAndDemand.msg
+echo "int32 param" > SetProfileSlotSelect.msg
+echo "int32 param" > SetRampThrottle.msg
+echo "int32 param" > SetRevFeedbackSensor.msg
+
+SetDemand.msg
+SetOverrideLimitSwitchEn.msg
+SetFeedbackDeviceSelect.msg
+SetRevMotDuringCloseLoopEn.msg
+SetOverrideBrakeType.msg
+SetModeSelect.msg
+SetModeSelect.msg
+SetProfileSlotSelect.msg
+SetRampThrottle.msg
+SetRevFeedbackSensor.msg

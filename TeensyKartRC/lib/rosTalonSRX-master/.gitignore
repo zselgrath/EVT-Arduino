@@ -1,0 +1,16 @@
+*~
+.cproject
+.project
+.pydevproject
+.catkin_workspace
+*.swp
+*.pyc
+*.out
+cmake_install.cmake
+build/
+devel/
+bin/
+lib/
+msg_gen/
+srv_gen/
+.catkin_tools/

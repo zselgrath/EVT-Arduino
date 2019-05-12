@@ -1,0 +1,108 @@
+Baud rate of CAN: 1 Mbit/s
+Needs some activity on CAN bus to switch to CAN mode
+	What kind of activity?
+		Any arbitrary data seems to work
+A control frame sets all parameters of the talon at once
+	10 ms control frame
+Request device ID
+
+Figure out the functions in CANSessionMux
+
+build
+	g++ -Wall CANSessionMux.h CANSessionMux.cpp CanTalonSRX.h CanTalonSRX.cpp CtreCanNode.h CtreCanNode.cpp ctre.h test.cpp -std=c++0x
+	catkin_make
+	rosrun can_talon_srx can_talon_srx_node
+	rosrun ardu_can_bridge ardu_can_bridge_node
+	see data with
+		rostopic echo /CANSend
+
+"cout <<" will try to print a uint8 as an ascii character
+
+tentative bytes to send over serial to arduino
+1 byte length, 4 byte id, 4 byte period, 1..8 byte data
+17 byte total
+
+10 ms status frame 
+	typedef struct _TALON_Status_1_General_10ms_t {
+		unsigned CloseLoopErrH:8;
+		unsigned CloseLoopErrM:8;
+		unsigned CloseLoopErrL:8;
+		unsigned AppliedThrottle_h3:3;
+		unsigned Fault_RevSoftLim:1;
+		unsigned Fault_ForSoftLim:1;
+		unsigned TokLocked:1;
+		unsigned LimitSwitchClosedRev:1;
+		unsigned LimitSwitchClosedFor:1;
+		unsigned AppliedThrottle_l8:8;
+		unsigned ModeSelect_h1:1;
+		unsigned FeedbackDeviceSelect:4;
+		unsigned LimitSwitchEn:3;
+		unsigned Fault_HardwareFailure:1;
+		unsigned Fault_RevLim:1;
+		unsigned Fault_ForLim:1;
+		unsigned Fault_UnderVoltage:1;
+		unsigned Fault_OverTemp:1;
+		unsigned ModeSelect_b3:3;
+		unsigned TokenSeed:8;
+	}
+Control frame
+	typedef struct _TALON_Control_1_General_10ms_t {
+		unsigned TokenH:8;
+		unsigned TokenL:8;
+		unsigned DemandH:8;
+		unsigned DemandM:8;
+		unsigned DemandL:8;
+		unsigned ProfileSlotSelect:1;
+		unsigned FeedbackDeviceSelect:4;
+		unsigned OverrideLimitSwitchEn:3;
+		unsigned RevFeedbackSensor:1;
+		unsigned RevMotDuringCloseLoopEn:1;
+		unsigned OverrideBrakeType:2;
+		unsigned ModeSelect:4;
+		unsigned RampThrottle:8;
+	}
+
+
+Talon SRX needs to receive a token to enable output
+	heartbeat every 100ms? 
+		jaguar does this
+		Needs a control frame sent every 100 ms or else output disabled
+	2 bytes at beginning of control frame?
+		CanTalonSRX has a  _TALON_Control_1_General_10ms_t struct with a space for 2 bytes of token (line 125)
+	very little public documentation
+		other than source code
+	changing the control mode works
+		change was reflected in 10ms control frame
+
+Create a motor control node?
+	CanTalonSRX has many functions, reimplementing would be time consuming
+		actually not so time consuming with the magic of vim
+Run in an existing node?
+	No need to reimplement functions to work with ROS messages.
+
+
+Layout
+	Start ROS node
+	Construct CANTalonSRX
+		pass ROS node as parameter
+		CANTalonSRX saves node in pointer
+	Use normal CANTalonSRX api
+	Send ROS messages to a CAN bridge node
+
+
+catkin_make benchmark
+	4 vbox cores: 0m26.699s
+	2 vbox cores: 0m40.103s
+
+ros::spin() blocks
+
+FRC_NetworkCommunication_CANSessionMux_openStreamSession and the rest of the stream functions are required for solicited parameters.
+FRC_NetworkCommunication_CANSessionMux_closeStreamSession is used once in the destructor
+Stream session caches received messages for a particular arbID for later
+There is a single arbID for all recieved parameters. Parameters are differentiated by a ParamEnum field in the received message
+_can_h is the handle for the stream session
+	there is only one stream open at a time
+Data from a stream session are kept in _sigs and are accessed by enum. _sigs is a map
+
+tell can device to remember this many messages from this arbID
+ask for cached messages

@@ -1,0 +1,8 @@
+<launch>
+	<node name="ardu_can_bridge" pkg="ardu_can_bridge" type="ardu_can_bridge_node"/>
+	<node name="can_talon_srx" pkg="can_talon_srx" type="can_talon_srx_node">
+		<param name="talon_number" type="int" value="4" />
+	</node>
+	<node name="joy" pkg="joy" type="joy_node"/>
+	<node name="can_talon_srx_test" pkg="can_talon_srx_test" type="can_talon_srx_test.py"/>
+</launch>

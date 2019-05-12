@@ -21,7 +21,7 @@
 //--Touch: 212
 //--Non: 11111
 
-//#define DEBUG
+#define DEBUG
 
 #include "SPI.h"
 

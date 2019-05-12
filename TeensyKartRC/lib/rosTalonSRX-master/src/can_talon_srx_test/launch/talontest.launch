@@ -1,0 +1,25 @@
+<launch>
+	<group ns="motor1">
+		<node name="can_talon_srx" pkg="can_talon_srx" type="can_talon_srx_node">
+			<param name="talon_number" type="int" value="1" />
+			<remap from="CANSend" to="/CANSend"/>
+			<remap from="CANRecv" to="/CANRecv"/>
+		</node>
+	</group>
+
+	<group ns="motor2">
+		<node name="can_talon_srx" pkg="can_talon_srx" type="can_talon_srx_node">
+			<param name="talon_number" type="int" value="2" />
+			<remap from="CANSend" to="/CANSend"/>
+			<remap from="CANRecv" to="/CANRecv"/>
+		</node>
+	</group>
+
+	<group ns="motor3">
+		<node name="can_talon_srx" pkg="can_talon_srx" type="can_talon_srx_node">
+			<param name="talon_number" type="int" value="3" />
+			<remap from="CANSend" to="/CANSend"/>
+			<remap from="CANRecv" to="/CANRecv"/>
+		</node>
+	</group>
+</launch>

@@ -1,0 +1,4 @@
+uint32 arbID
+---
+uint8 status
+ardu_can_bridge_msgs/CANData data
