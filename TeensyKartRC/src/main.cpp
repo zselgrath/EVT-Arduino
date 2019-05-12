@@ -1,24 +1,39 @@
 //Includes
 #include <ros.h>
-#include <mavros_msgs/RCIn.h>
+#include <std_msgs/UInt16MultiArray.h>
+#include <std_msgs/MultiArrayDimension.h>
+#include <std_msgs/MultiArrayLayout.h>
 #include <Arduino.h>
 #include <SatelliteReceiver.h>
 
 ros::NodeHandle nh; //takes care of serial port communications
-mavros_msgs::RCIn rcin;
-ros::Publisher rcPublisher("/mavros/rc/in",&rcin);
+std_msgs::UInt16MultiArray array_msg;
+std_msgs::MultiArrayDimension myDim;
+std_msgs::MultiArrayLayout myLayout;
+ros::Publisher int16Pub("teensyRX", &array_msg);
 
-//Defines
 #define ledPin 13
 SatelliteReceiver SpektrumRx;
 #define USE_USBCON
+uint16_t update = 0;
 
 //Setup
 void setup(){
   pinMode(ledPin, OUTPUT);
-  nh.getHardware()->setBaud(57600);
+  
   nh.initNode();
-  nh.advertise(rcPublisher);
+
+  myDim.label = "channels";
+  myDim.size = 7;
+  myDim.stride = 1;
+  myLayout.dim = (std_msgs::MultiArrayDimension *)malloc(sizeof(std_msgs::MultiArrayDimension) * 1);
+  myLayout.dim[0] = myDim;
+  myLayout.data_offset = 0;
+  array_msg.layout = myLayout;
+  array_msg.data = (uint16_t *)malloc(sizeof(uint16_t) * 7);
+  array_msg.data_length = 7;
+
+  nh.advertise(int16Pub);
   
   Serial1.begin(115200);
   Serial1.setTimeout(1);
@@ -27,44 +42,17 @@ void setup(){
 //Loop
 void loop()
 {
-  delay(20);
   SpektrumRx.getFrame();
-  /*
-  Serial.print(SpektrumRx.getBindType());
-  Serial.print(" ");
-  
-  Serial.print(SpektrumRx.getThro());
-  Serial.print(" "); 
-  Serial.print(SpektrumRx.getAile());
-  Serial.print(" ");
-  Serial.print(SpektrumRx.getElev());
-  Serial.print(" ");
-  Serial.print(SpektrumRx.getRudd());
-  Serial.print(" ");
-  Serial.print(SpektrumRx.getGear());
-  Serial.print(" ");
-  Serial.print(SpektrumRx.getAux1());
-  Serial.print(" ");
-  Serial.println();
-  
-  for(uint8_t i=0;i<16;i++){
-    Serial.print(SpektrumRx.getRaw(i));
-    Serial.print("\t");
-  }
-  
-  Serial.println();
-  */
 
-  rcin.rssi = 0;
-  rcin.channels[0] = SpektrumRx.getAile();
-  rcin.channels[1] = SpektrumRx.getElev();
-  rcin.channels[2] = SpektrumRx.getThro();
-  rcin.channels[3] = SpektrumRx.getRudd();
-  rcin.channels[4] = SpektrumRx.getGear();
-  rcin.channels[5] = SpektrumRx.getAux1();
-  rcin.channels[6] = SpektrumRx.getAux1();
+  array_msg.data[0] = SpektrumRx.getAile();
+  array_msg.data[1] = SpektrumRx.getElev();
+  array_msg.data[2] = SpektrumRx.getThro();
+  array_msg.data[3] = SpektrumRx.getRudd();
+  array_msg.data[4] = SpektrumRx.getGear();
+  array_msg.data[5] = SpektrumRx.getAux1();
+  array_msg.data[6] = update;
 
-  if (SpektrumRx.getAux1() > RXCENTER)
+  if (SpektrumRx.getAux1() > 1000)
   {
     digitalWrite(ledPin, 1);
   }
@@ -72,9 +60,11 @@ void loop()
   {
     digitalWrite(ledPin, 0);
   }
-
-  rcPublisher.publish(&rcin);
+  
+  int16Pub.publish(&array_msg);
   nh.spinOnce();
+  update++;
+  delay(20);
 }
 
 /*DOC
