@@ -104,10 +104,13 @@ public:
         Serial.print(String(">").concat("        "));
         Serial.print(String(">").concat(pVCU->getSwitchStates()));
         Serial.print(String(" a1:").concat(pVCU->getApps1()));
-        Serial.print(String(" a1f:").concat(String(pVCU->getApps1Float(), 6)));
-        Serial.print(String(" a2f:").concat(String(pVCU->getApps2Float(), 6)));
         Serial.print(String(" a2:").concat(pVCU->getApps2()));
         Serial.print(String(" bse:").concat(pVCU->getBse()));
+        Serial.print(String(" a1f:").concat(String(pVCU->getApps1ADCFloat(), 6)));
+        Serial.print(String(" a2f:").concat(String(pVCU->getApps2ADCFloat(), 6)));
+        Serial.print(String(" a1T:").concat(String(pVCU->getApps1Travel(), 6)));
+        Serial.print(String(" a2T:").concat(String(pVCU->getApps2Travel(), 6)));
+        Serial.print(String(" APPS:").concat(String(pVCU->getCheckedAndScaledAppsValue(), 6)));
         Serial.print(String(" sdcp:").concat(pVCU->getSDCCurrentPos()));
         Serial.print(String(" sdcn:").concat(pVCU->getSDCCurrentNeg()));
         Serial.print(String(" rr:").concat(runRate));
@@ -116,6 +119,13 @@ public:
         String z = String(pVCU->imuAccel.acceleration.z);
         Serial.print(String(" axyz:").concat(x).concat(y).concat(z));
         Serial.println("");
+
+        // Serial.print(String("").concat(String(pVCU->getApps1ADCFloat()*100.0, 6)));
+        // Serial.print(String(",").concat(String(pVCU->getApps2ADCFloat()*100.0, 6)));
+        // Serial.print(String(",").concat(String(pVCU->getApps1Travel()*100.0, 6)));
+        // Serial.print(String(",").concat(String(pVCU->getApps2Travel()*100.0, 6)));
+        // Serial.print(String(",").concat(String(pVCU->getCheckedAndScaledAppsValue()*100.0, 6)));
+        // Serial.println(",");
     }
 
     explicit PrintStatus(VCU *aVCU) {
@@ -123,18 +133,20 @@ public:
     }
 
 private:
-    volatile unsigned int getExecutionDelay() override { return 250000; }
+    volatile unsigned int getExecutionDelay() override { return 200000; }
 
     VCU *pVCU;
 };
 
 class OffState: public CarState {
   public:
-    OffState(){};
+    OffState(){
+      Serial.println("Creating OffState");
+    };
     NewStateType handleUserInput(VCU& vcu, CarState::TransitionType requestedTransition) override {
       if(requestedTransition == TransitionType::ENABLE){
         // Perform startup sequence, checking either here or in constructor for that state for safety checks
-        Serial.println("Starting precharge but actually");
+        // Serial.println("OffState transitioning to PrechargeState");
         return NewStateType::PRECHARGE_STATE;
       }
       //Serial.println("Continuing being off");
@@ -155,7 +167,9 @@ class OffState: public CarState {
 
 class PrechargeState: public CarState {
   public:
-    PrechargeState(){};
+    PrechargeState(){
+      Serial.println("Creating PrechargeState");
+    };
     NewStateType handleUserInput(VCU& vcu, CarState::TransitionType requestedTransition) override {
       if(requestedTransition == TransitionType::DISABLE){
         // Halt startup
@@ -164,9 +178,9 @@ class PrechargeState: public CarState {
       return SAME_STATE;
     }
     void enter(VCU& vcu) override {
+      Serial.println("Precharge entering.");
       this->prechargeStartTime = millis();
-      bool prechargeCanContinue = true;
-      // TODO: Determine if the car is safe and that precharge should proceed here
+      bool prechargeCanContinue = prechargeIsSafeToStart(vcu);
       if(prechargeCanContinue){
         vcu.sdcActive = true; // Close the G2RL SDC relay
         vcu.prechargeActive = true; // Enable the pin to enable the precharge output
@@ -181,8 +195,7 @@ class PrechargeState: public CarState {
       // Validate that the car should be precharging. At some point, change the state to OnState.
       long currentPrechargeTime = millis() - this->prechargeStartTime;
       if(currentPrechargeTime < MAX_PRECHARGE_TIME){
-        bool prechargeCanContinue = true;
-        // TODO: Determine if the car is safe and that precharge should proceed here
+        bool prechargeCanContinue = prechargeIsSafeToContinue(vcu);
         if(prechargeCanContinue){
           bool carIsPrecharged = false;
           if(currentPrechargeTime > 2000){
@@ -203,6 +216,32 @@ class PrechargeState: public CarState {
       Serial.println("Precharge timeout");
       return NewStateType::OFF_STATE;
     }
+    
+    // TODO: Determine if the car is safe and that precharge should proceed here 
+    static bool prechargeIsSafeToStart(VCU& vcu){
+      if(!vcu.acceleratorPedalIsPlausible()){
+        Serial.println("Not starting precharge because the accelerator value is not plausible.");
+        return false;
+      }
+      if(vcu.getCheckedAndScaledAppsValue() > 0.001){
+        Serial.println("Not starting precharge because the accelerator is pressed.");
+        return false;
+      }
+      return true;
+    }
+
+    static bool prechargeIsSafeToContinue(VCU& vcu){
+      // TODO: Determine if the car is safe and that precharge should proceed here
+      if(!vcu.acceleratorPedalIsPlausible()){
+        Serial.println("Disabling precharge because the accelerator value is not plausible.");
+        return false;
+      }
+      if(vcu.getCheckedAndScaledAppsValue() > 0.001){
+        Serial.println("Disabling precharge because the accelerator is pressed.");
+        return false;
+      }
+      return true;
+    }
   private:
     long prechargeStartTime;
     const long MAX_PRECHARGE_TIME = 3000; // milliseconds
@@ -210,7 +249,9 @@ class PrechargeState: public CarState {
 
 class OnState: public CarState {
   public:
-    OnState(){};
+    OnState(){
+      Serial.println("Creating OnState");
+    };
     NewStateType handleUserInput(VCU& vcu, CarState::TransitionType requestedTransition) override {
       if(requestedTransition == TransitionType::DISABLE){
         // TODO: Log a request to stop the car here
@@ -226,6 +267,7 @@ class OnState: public CarState {
       vcu.chargedActive = true;
       vcu.motorControllerActive = true;
       vcu.writePinStates(); // TODO: This might be fake
+      vcu.enableMotorController();
       carStartTime = millis();
       
     }
@@ -273,6 +315,68 @@ private:
     VCU *pVCU;
 };
 
+class HandlePumpAndFan : public VCUTask {
+public:
+    void execute() override {
+        this->setPumpOutput(0.0, false);
+        // float looper = (millis() / 1000) % 11;
+        // float adder = pVCU->mapf(looper, 0.0, 10.0, 0.0, 1.0);
+        // pVCU->setPumpOutput(adder);
+    }
+    explicit HandlePumpAndFan(VCU *aVCU) {
+        pVCU = aVCU;
+        this->setPumpOutput(0.0, true); // TODO: Determine how this should default
+    }
+
+  void setPumpOutput(float value, bool force){
+    if(value != pumpSetpoint || force){
+      pumpSetpoint = value;
+      Wire.beginTransmission(PUMP_DIGITAL_POTENTIOMETER);
+      byte valueToWrite = (byte)pVCU->mapf(value, 0.0, 1.0, 0, 127);
+      Wire.write(valueToWrite);
+      Wire.endTransmission();
+      Serial.println("Setting pump to:" + String(valueToWrite));
+    }
+  }
+private:
+    volatile unsigned int getExecutionDelay() override { return 1000000; }
+    float pumpSetpoint = 0.0f;
+    VCU *pVCU;
+};
+
+class HandleBrakeLight : public VCUTask {
+public:
+    void execute() override {
+        if(pVCU->getBseTravel() > BSE_TRAVEL_BRAKE_LIGHT_THRESHOLD){
+          // TODO: Handle brake light turning on and off
+        }else{
+
+        }
+    }
+    explicit HandleBrakeLight(VCU *aVCU) {
+        pVCU = aVCU;
+        // TODO: PinMode state for brake light
+    }
+private:
+    volatile unsigned int getExecutionDelay() override { return 50000; }
+    const float BSE_TRAVEL_BRAKE_LIGHT_THRESHOLD = 0.05f;
+    VCU *pVCU;
+};
+
+class HandleDashUpdates : public VCUTask {
+public:
+    void execute() override {
+        pVCU->sendDashText(String((millis() / 1000) % 1000));
+    }
+    explicit HandleDashUpdates(VCU *aVCU) {
+        pVCU = aVCU;
+        
+    }
+private:
+    volatile unsigned int getExecutionDelay() override { return 100000; }
+    VCU *pVCU;
+};
+
 
 // Just used to prove that multiple tasks are running at independent rates
 class PrintWew : public VCUTask {
@@ -300,9 +404,10 @@ private:
 class DoSpecificDebugThing : public VCUTask {
 public:
     void execute() override {
-      float genericTorque = pVCU->getTorqueRegisterValue();
+      float genericTorque = pVCU->calculateTorqueRegisterValueForWrite();
 //      Serial.println("I could set torque to " + String(genericTorque));
-      Serial.println(String(genericTorque));
+      // Serial.println(String(genericTorque));
+      //Serial.println(pVCU->getCheckedAndScaledAppsValue());
       //Serial.println("VCU: " + String("e"));
       if (pVCU->right()) {
           Serial.println("Disabling motor controller torque");
@@ -314,7 +419,7 @@ public:
 //      }else{
 //        pVCU->setTorqueValue(0);
 //      }
-        pVCU->setTorqueValue((int) genericTorque);
+        // pVCU->setTorqueValue((int) genericTorque);
 //      if(pVCU->center()){
 //        Serial.println("Requesting RPM");
 //        pVCU->requestRPM();

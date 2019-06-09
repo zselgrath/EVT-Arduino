@@ -81,6 +81,16 @@ void VCU::init() {
 
     // END CRITICAL SECTION
 
+    // CAN0 (frontend, FlexCAN) setup
+    CAN_filter_t defaultedMask; //Needed to do full declaration for can bus on secondary pins
+    const byte canAltTxRx = 1;
+    // FlexCAN canBus(CAN_BAUD_RATE);
+     //canBus = FlexCAN(CAN_BAUD_RATE);
+    defaultedMask.ext = 0;
+    defaultedMask.rtr = 0;
+    defaultedMask.id = 0;
+    canBus.begin(CAN_BAUD_RATE, defaultedMask, canAltTxRx, canAltTxRx);
+
     if (!Serial) {
       Serial.begin(115200); // We do not wait for Serial to be initialized
     }
@@ -114,8 +124,11 @@ void VCU::init() {
     tasks[5] = new DoSpecificDebugThing(this);
     tasks[6] = new ProcessSerialInput(this);
     tasks[7] = new UpdateIMU(&(this->imuAccel), &(this->imuMag), &(this->imuGyro), &(this->imuTemperature));
-    tasks[8] = new PrintWew();
-    tasks[9] = new PrintLad();
+    tasks[8] = new HandlePumpAndFan(this);
+    tasks[9] = new HandleBrakeLight(this);
+    tasks[10] = new HandleDashUpdates(this);
+    tasks[11] = new PrintWew();
+    tasks[12] = new PrintLad();
 
     // Default variable initialization
     this->maxAdcValue = pow(2, ADC_READ_RESOLUTION);
@@ -126,6 +139,23 @@ void VCU::init() {
         this->bseSamples[i] = 0;
     }
     this->loopsCompleted = 0;
+}
+
+void VCU::sendDashText(String text){
+  Serial.println("Displaying " + text);
+  CAN_message_t msg;
+  msg.id = canDashAddress;
+  msg.len = 4; // Not text.length since we only have 3 digits, plus the target register address
+  msg.timeout = 20;
+  const byte dashTextRegister = 0x01;
+  char charArray[3];
+  text.toCharArray(charArray, 3);
+  msg.buf[0] = dashTextRegister;
+  msg.buf[1] = charArray[0];
+  msg.buf[2] = charArray[1];
+  msg.buf[3] = charArray[2];
+  // bamStat.commanded.lastMessageStatus = canBus.write(msg);
+  Serial.println("CBM: " + canBus.write(msg));
 }
 
 void VCU::setSafe() {
@@ -162,15 +192,14 @@ void VCU::vcuLoop() {
     this->loopsCompleted++;
 }
 
-
-float VCU::getTorqueRegisterValue(){
-  float toReturn = this->mapf(this->getApps1Float(), 0.185, 0.410, 0, -32000);
-  if(toReturn < -31000){
-    toReturn = -31000;
+int VCU::calculateTorqueRegisterValueForWrite(){
+  float toReturn = this->mapf(this->getDeratedTorqueSetpoint(), 0.0, 1.0, 0, -32767); // the max might actually be 32768
+  if(toReturn < -32767){
+    toReturn = -32767;
   }else if(toReturn > -10){
     toReturn = 0;
   }
-  return toReturn;
+  return (int) toReturn;
 }
 
 void VCU::requestStartup() {
@@ -186,11 +215,12 @@ void VCU::requestTransition(CarState::TransitionType transitionType){
   if(state != CarState::NewStateType::SAME_STATE){
     noInterrupts();
     if(state == CarState::NewStateType::PRECHARGE_STATE){
-      long timePassedSinceLUTR = millis() - lastUserTransitionRequest;
+      long timePassedSinceLUTR = millis() - this->lastUserTransitionRequest;
       if(timePassedSinceLUTR < MINIMUM_TRANSITION_DELAY){
+        // Serial.println("TPSL: " + String(timePassedSinceLUTR) + ", LUTR: " + String(this->lastUserTransitionRequest));
         return; // It has not been long enough since the last transition
       }
-      lastUserTransitionRequest = millis();
+      this->lastUserTransitionRequest = millis();
       delete currentCarState;
       currentCarState = new PrechargeState();
       currentCarState->enter(*this);
@@ -223,7 +253,7 @@ void VCU::sendMotorControllerMessage(unsigned char *bytes, int messageLength) {
 }
 
 void VCU::setTorqueValue(int value) {
-    unsigned char canTorquePacket[3] = {0x90, (byte)value, (byte)(value>>8)};
+    unsigned char canTorquePacket[3] = {regTorqueCommanded, (byte)value, (byte)(value>>8)};
     this->sendMotorControllerMessage(canTorquePacket, 3);
 }
 
@@ -235,8 +265,9 @@ void VCU::disableMotorController() {
 void VCU::enableMotorController() //DO NOT USE, DANGEROUS TO OVERRIDE LIKE THIS
 {
   this->setTorqueValue(0);
-  this->sendMotorControllerMessage(this->canArrDisableMotorController, 0);
+  this->sendMotorControllerMessage(this->canArrEnableMotorController, 3);
 }
+
 void VCU::requestRPM() {
   this->sendMotorControllerMessage(this->canRequestRPM, 3);
 }
@@ -254,13 +285,6 @@ int VCU::getApps1() {
     return sum / OVERSAMPLING_BUFFER_SIZE;
 }
 
-float VCU::getApps1Float() {
-    return VCU::mapf(this->getApps1(), 0, this->maxAdcValue, 0.0f, 1.0f);
-}
-float VCU::getApps2Float() {
-    return VCU::mapf(this->getApps2(), 0, this->maxAdcValue, 0.0f, 1.0f);
-}
-
 int VCU::getApps2() {
     int sum = 0;
     for (int apps2sample : apps2samples) {
@@ -275,6 +299,94 @@ int VCU::getBse() {
         sum += bseSample;
     }
     return sum / OVERSAMPLING_BUFFER_SIZE;
+}
+
+// Returns the APPS 1 float value as scaled from 0V to AREF (3.3V)
+float VCU::getApps1ADCFloat() {
+    return VCU::mapf(this->getApps1(), 0, this->maxAdcValue, 0.0f, 1.0f);
+}
+// Returns the APPS 2 float value as scaled from 0V to AREF (3.3V)
+float VCU::getApps2ADCFloat() {
+    return VCU::mapf(this->getApps2(), 0, this->maxAdcValue, 0.0f, 1.0f);
+}
+// Returns the BSE float value as scaled from 0V to AREF (3.3V)
+float VCU::getBseADCFloat() {
+    return VCU::mapf(this->getBse(), 0, this->maxAdcValue, 0.0f, 1.0f);
+}
+
+float VCU::getApps1Travel(){
+  // These values are the ADC scale readings from the extremes of physical travel
+  float toReturn = this->mapf(this->getApps1ADCFloat(), 0.1604, 0.411, 0.0f, 1.0f); 
+  return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
+}
+
+float VCU::getApps2Travel(){
+  // These values are the ADC scale readings from the extremes of physical travel
+  float toReturn = this->mapf(this->getApps2ADCFloat(), 0.1128, 0.2792, 0.0f, 1.0f); 
+  return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
+}
+
+float VCU::getBseTravel(){
+  // These values are the ADC scale readings from the extremes of physical travel
+  float toReturn = this->mapf(this->getBseADCFloat(), 0.1, 0.2, 0.0f, 1.0f); 
+  return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
+}
+
+bool VCU::acceleratorPedalIsPlausible(){
+    float apps1Scaled = this->getApps1Travel(); 
+    float apps2Scaled = this->getApps2Travel(); 
+    bool apps1IsInRange = apps1Scaled > -0.1 && apps1Scaled < 1.1;
+    bool apps2IsInRange = apps2Scaled > -0.1 && apps2Scaled < 1.1;
+    bool appsAreInRange = apps1IsInRange && apps2IsInRange;
+    if(!appsAreInRange){
+      return false; // Return here if there's no way the values could be valid, since one of them is very far out of valid range
+    }
+
+    bool apps1IsTooHigh = (apps1Scaled > (apps2Scaled + 0.05)); // 0.05 is literally 5% of the calculated pedal travel percentage
+    bool apps1IsTooLow = (apps1Scaled < (apps2Scaled - 0.05));
+    bool isPlausible = (!apps1IsTooHigh && !apps1IsTooLow);
+    return isPlausible; // Return here if the values vary too significantly (5%)
+}
+
+// Returns the APPS values from 0.0 to 1.0, performing the scaling as a fraction of their calibrated readings
+// and returning 0 if they are significantly different aka implausible (T 6.2.3).
+float VCU::getCheckedAndScaledAppsValue() {
+    float apps1Scaled = this->getApps1Travel(); 
+    float apps2Scaled = this->getApps2Travel(); 
+    float physicalTravel = 0.0f;
+    bool isImplausible = !(this->acceleratorPedalIsPlausible());
+    if(isImplausible){
+      // Serial.print("The APPS values differ by more than 5% - they are implausible.");
+      // Serial.println(String(toReturn) + ", " + String(apps1Scaled) + ", " + String(apps2Scaled));
+      // Serial.println(apps1Scaled > (apps2Scaled * 1.08));
+      // Serial.println(apps1Scaled < (apps2Scaled / 1.08));
+      return 0.0f;
+    }else{
+      physicalTravel = (apps1Scaled + apps2Scaled)/2.0;
+    }
+    if(physicalTravel > 1.0f){
+      physicalTravel = 1.0f;
+    }
+    if(physicalTravel < 0.001f){
+      physicalTravel = 0.0f;
+    }
+    float toReturn = 0.0f;
+    // Scale based on a pedal deadzone
+    if(physicalTravel > PEDAL_DEADZONE){
+      toReturn = this->mapf(physicalTravel, PEDAL_DEADZONE, 1.0, 0.0f, 1.0f);  // We do not currently scale based on the full-travel deadzone because that could increase the torque requested by the driver. This may change.
+    }
+    // Make sure that the scaled value is possible
+    if(toReturn < 0.0f){
+      toReturn = 0.0f;
+    }else if(toReturn > 1.0){
+      toReturn = 1.0;
+    }
+    return toReturn;
+}
+
+float VCU::getDeratedTorqueSetpoint(){
+  // TODO: Make this derate, and something near here also probably perform safety checks
+  return this->getCheckedAndScaledAppsValue(); // TODO: Make this real.
 }
 
 int VCU::getSDCCurrentPos() {
