@@ -1,6 +1,6 @@
 #include "VCU.h"
 
-#define MAXIMUM_ON_TIME 120000
+#define MAXIMUM_ON_TIME 600000 // 10 mins
 
 // To add a new VCUTask, edit 3 things:
 // 1. Add to this class, by adding a new class extending/implementing VCUTask
@@ -36,11 +36,50 @@ private:
 class SaveDataToSD : public VCUTask {
 public:
     void execute() override {
-        // TODO
+      // Serial.println("Titles: " + getTitleString());
+      Serial.println("MC: " + getMotorControllerString());
+    }
+
+    explicit SaveDataToSD(VCU *aVCU) {
+        pVCU = aVCU;
+        String toAppend = motorControllerRegisterNames[0];
+        for(int i = 1; i < MC_REGISTER_ARRAY_LENGTH; i++){
+          toAppend = toAppend + ", " + motorControllerRegisterNames[i];
+        }
+        Serial.println("Labels: " + getTitleString());
+    }
+
+    String getTitleString(){
+      if(titleString == "" || millis() < 1000){
+        String toAppend = motorControllerRegisterNames[0];
+        for(int i = 1; i < MC_REGISTER_ARRAY_LENGTH; i++){
+          if(importantMotorControllerRegisters[i] == 0){
+            break;
+          }
+          toAppend = toAppend + ",  " + motorControllerRegisterNames[i];
+        }
+        titleString = toAppend;
+        // Serial.println("Labels: " + toAppend);
+      }
+      return titleString;
+    }
+
+    String getMotorControllerString(){
+      String toAppend = (String((receivedMotorControllerValues[0][1] << 8) + receivedMotorControllerValues[0][0]));
+      for(int i = 1; i < MC_REGISTER_ARRAY_LENGTH; i++){
+        if(importantMotorControllerRegisters[i] == 0){
+          break;
+        }
+        short value = (receivedMotorControllerValues[i][1] << 8) + receivedMotorControllerValues[i][0]; // Not sure which is more or less significant (endianness)
+        toAppend = toAppend + ", " + String(value); 
+      }
+      return toAppend;
     }
 
 private:
-    volatile unsigned int getExecutionDelay() override { return 50000; }
+    volatile unsigned int getExecutionDelay() override { return 100000; }
+    VCU *pVCU;
+    String titleString = "";
 };
 
 // Update the IMU variables. This class has ownership of the LSM object since nothing else should care about using it.
@@ -66,7 +105,7 @@ public:
     }
 
 private:
-    volatile unsigned int getExecutionDelay() override { return 100000; }
+    volatile unsigned int getExecutionDelay() override { return 100100; }
 
     Adafruit_LSM9DS1 lsm;
     sensors_event_t *accel, *mag, *gyro, *temperature;
@@ -89,7 +128,7 @@ public:
     }
 
 private:
-    volatile unsigned int getExecutionDelay() override { return 20000; }
+    volatile unsigned int getExecutionDelay() override { return 20300; }
 
     int *sdcpSamples; // Pointer to the array containing the shutdown circuit positive side current sensor ADC samples
     int *sdcnSamples;
@@ -143,11 +182,11 @@ class OffState: public CarState {
     OffState(){
       Serial.println("Creating OffState");
     };
-    NewStateType handleUserInput(VCU& vcu, CarState::TransitionType requestedTransition) override {
+    CarStateType handleUserInput(VCU& vcu, CarState::TransitionType requestedTransition) override {
       if(requestedTransition == TransitionType::ENABLE){
         // Perform startup sequence, checking either here or in constructor for that state for safety checks
         // Serial.println("OffState transitioning to PrechargeState");
-        return NewStateType::PRECHARGE_STATE;
+        return CarStateType::PRECHARGE_STATE;
       }
       //Serial.println("Continuing being off");
       return SAME_STATE;
@@ -157,12 +196,20 @@ class OffState: public CarState {
       vcu.setSafe();
       vcu.writePinStates();
       vcu.disableMotorController();
+      stateStartTime = millis();
     }
-    NewStateType update(VCU& vcu) override {
+    CarStateType update(VCU& vcu) override {
       // There's not much to update here when the car is off.
-      return NewStateType::SAME_STATE;
+      return CarStateType::SAME_STATE;
+    }
+    CarStateType getStateType() override {
+      return CarStateType::OFF_STATE;
+    }
+    long getTimeInState() override {
+      return millis() - stateStartTime;
     }
   private:
+    long stateStartTime;
 };
 
 class PrechargeState: public CarState {
@@ -170,10 +217,10 @@ class PrechargeState: public CarState {
     PrechargeState(){
       Serial.println("Creating PrechargeState");
     };
-    NewStateType handleUserInput(VCU& vcu, CarState::TransitionType requestedTransition) override {
+    CarStateType handleUserInput(VCU& vcu, CarState::TransitionType requestedTransition) override {
       if(requestedTransition == TransitionType::DISABLE){
         // Halt startup
-        return NewStateType::OFF_STATE;
+        return CarStateType::OFF_STATE;
       }
       return SAME_STATE;
     }
@@ -191,7 +238,7 @@ class PrechargeState: public CarState {
         Serial.println("The car was determined to be dangerous when starting precharge.");
       }
     }
-    NewStateType update(VCU& vcu) override {
+    CarStateType update(VCU& vcu) override {
       // Validate that the car should be precharging. At some point, change the state to OnState.
       long currentPrechargeTime = millis() - this->prechargeStartTime;
       if(currentPrechargeTime < MAX_PRECHARGE_TIME){
@@ -204,17 +251,21 @@ class PrechargeState: public CarState {
           // TODO: Determine if the car is ready to enable here
           if(carIsPrecharged){
             Serial.println("Precharge ending, CAR TURNING ON");
-            return NewStateType::ON_STATE;
+            return CarStateType::ON_STATE;
           }
-          return NewStateType::SAME_STATE;
+          return CarStateType::SAME_STATE;
         }else{
           Serial.println("Car was determined to be dangerous during precharge loop");
-          return NewStateType::OFF_STATE;
+          return CarStateType::OFF_STATE;
         }
       }
       // TODO: Log timeout message here
       Serial.println("Precharge timeout");
-      return NewStateType::OFF_STATE;
+      return CarStateType::OFF_STATE;
+    }
+
+    CarStateType getStateType() override {
+      return CarStateType::PRECHARGE_STATE;
     }
     
     // TODO: Determine if the car is safe and that precharge should proceed here 
@@ -242,6 +293,10 @@ class PrechargeState: public CarState {
       }
       return true;
     }
+
+    long getTimeInState() override {
+      return millis() - prechargeStartTime;
+    }
   private:
     long prechargeStartTime;
     const long MAX_PRECHARGE_TIME = 3000; // milliseconds
@@ -252,10 +307,10 @@ class OnState: public CarState {
     OnState(){
       Serial.println("Creating OnState");
     };
-    NewStateType handleUserInput(VCU& vcu, CarState::TransitionType requestedTransition) override {
+    CarStateType handleUserInput(VCU& vcu, CarState::TransitionType requestedTransition) override {
       if(requestedTransition == TransitionType::DISABLE){
         // TODO: Log a request to stop the car here
-        return NewStateType::OFF_STATE;
+        return CarStateType::OFF_STATE;
       }
       return SAME_STATE;
     }
@@ -271,14 +326,21 @@ class OnState: public CarState {
       carStartTime = millis();
       
     }
-    NewStateType update(VCU& vcu) override {
+    CarStateType update(VCU& vcu) override {
       // TODO: Perform runtime safety validation here
       long currentRuntime = millis() - carStartTime;
       if(currentRuntime > MAXIMUM_ON_TIME){
-        return NewStateType::OFF_STATE; // TODO: THIS IS FAKE
+        return CarStateType::OFF_STATE; // TODO: THIS IS FAKE
       }else{
-        return NewStateType::SAME_STATE;
+        return CarStateType::SAME_STATE;
       }
+    }
+
+    CarStateType getStateType() override {
+      return CarStateType::ON_STATE;
+    }
+    long getTimeInState() override {
+      return millis() - carStartTime;
     }
   private:
     long carStartTime;
@@ -287,16 +349,16 @@ class OnState: public CarState {
 class VehicleStateTask : public VCUTask {
 public:
     void execute() override {
-      CarState::NewStateType state = pVCU->currentCarState->update(*pVCU);
+      CarState::CarStateType state = pVCU->currentCarState->update(*pVCU);
       
-      if(state != CarState::NewStateType::SAME_STATE){
+      if(state != CarState::CarStateType::SAME_STATE){
         delete pVCU->currentCarState;
         Serial.println("Change");
-        if(state == CarState::NewStateType::ON_STATE){
+        if(state == CarState::CarStateType::ON_STATE){
           // The startup/precharge state machine has requested a transition to ON
           Serial.println("Change to on");
           pVCU->currentCarState = new OnState();
-        }else if(state == CarState::NewStateType::OFF_STATE){
+        }else if(state == CarState::CarStateType::OFF_STATE){
           Serial.println("Change to off");
           // The startup/precharge state machine has requested a transition to OFF
           pVCU->currentCarState = new OffState();
@@ -308,6 +370,7 @@ public:
     explicit VehicleStateTask(VCU *vcuPointer) {
         this->pVCU = vcuPointer;
         pVCU->currentCarState = new OffState();
+        pVCU->currentCarState->enter(*pVCU);
     }
 
 private:
@@ -339,7 +402,7 @@ public:
     }
   }
 private:
-    volatile unsigned int getExecutionDelay() override { return 1000000; }
+    volatile unsigned int getExecutionDelay() override { return 1001000; }
     float pumpSetpoint = 0.0f;
     VCU *pVCU;
 };
@@ -358,7 +421,7 @@ public:
         // TODO: PinMode state for brake light
     }
 private:
-    volatile unsigned int getExecutionDelay() override { return 50000; }
+    volatile unsigned int getExecutionDelay() override { return 50200; }
     const float BSE_TRAVEL_BRAKE_LIGHT_THRESHOLD = 0.05f;
     VCU *pVCU;
 };
@@ -371,6 +434,25 @@ public:
     explicit HandleDashUpdates(VCU *aVCU) {
         pVCU = aVCU;
         
+    }
+private:
+    volatile unsigned int getExecutionDelay() override { return 100100; }
+    VCU *pVCU;
+};
+
+
+class RequestCanData : public VCUTask {
+public:
+    void execute() override {
+        for(int i = 0; i < MC_REGISTER_ARRAY_LENGTH; i++){
+          if(importantMotorControllerRegisters[i] == 0){
+            break;
+          }
+          pVCU->requestMotorControllerRegisterOnce(importantMotorControllerRegisters[i]);
+        }
+    }
+    explicit RequestCanData(VCU *aVCU) {
+        pVCU = aVCU;
     }
 private:
     volatile unsigned int getExecutionDelay() override { return 100000; }
@@ -419,7 +501,11 @@ public:
 //      }else{
 //        pVCU->setTorqueValue(0);
 //      }
-        // pVCU->setTorqueValue((int) genericTorque);
+if(pVCU->carIsOn()){
+  pVCU->setTorqueValue((int) genericTorque);
+}else{
+  pVCU->setTorqueValue(0);
+}
 //      if(pVCU->center()){
 //        Serial.println("Requesting RPM");
 //        pVCU->requestRPM();

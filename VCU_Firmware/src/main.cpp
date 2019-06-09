@@ -48,6 +48,14 @@ void loop() {
   if(vcu.left()){
     vcu.requestShutdown();
   }
+  if(vcu.start()){
+    digitalWrite(led, LOW);
+    if(vcu.carCanStart()){
+      vcu.requestStartup();
+    }else if(vcu.carIsOn()){
+      vcu.requestShutdown();
+    }
+  }
 
   //delayMicroseconds(50);
 }

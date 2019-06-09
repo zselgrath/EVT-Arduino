@@ -6,47 +6,63 @@
 
 // Reads ADC values for both APPS sensors as well as the BSE and appends them to the oversampling array
 
-void onReceive(int packetSize) {
+static void onReceive(int packetSize) {
   // received a packet
-  Serial.print("\nReceived ");
+  // Serial.print("\nReceived ");
 
-  if (CAN.packetExtended()) {
-    Serial.print("extended ");
-  }
+  // if (CAN.packetExtended()) {
+  //   Serial.print("extended ");
+  // }
 
-  if (CAN.packetRtr()) {
-    // Remote transmission request, packet contains no data
-    Serial.print("RTR ");
-  }
+  // if (CAN.packetRtr()) {
+  //   // Remote transmission request, packet contains no data
+  //   Serial.print("RTR ");
+  // }
 
-  Serial.print("packet with id 0x");
-  Serial.print(CAN.packetId(), HEX);
+  // Serial.print("packet with id 0x");
+  // Serial.print(CAN.packetId(), HEX);
 
   int currentByte = 0;
   byte bytes [packetSize];
 
   if (CAN.packetRtr()) {
-    Serial.print(" and requested length ");
-    Serial.println(CAN.packetDlc());
+    // Serial.print(" and requested length ");
+    // Serial.println(CAN.packetDlc());
   } else {
-    Serial.print(" and length ");
-    Serial.println(packetSize);
+    // Serial.print(" and length ");
+    // Serial.println(packetSize);
     // only print packet data for non-RTR packets
     while (CAN.available()) {
       bytes[currentByte] = ((byte)CAN.read());
       currentByte++;
-      Serial.print(bytes[currentByte]);
-      Serial.print(" ");
+      // Serial.print(bytes[currentByte]);
+      // Serial.print(" ");
     }
-    Serial.println();
+    // Serial.println();
   }
 
-  if(bytes[0] == (byte)0xA8){
-    Serial.println("RPM Received: " + String(0 + bytes[1] + (bytes[2] >> 8)));
+  if(bytes[0] == 0){
+    Serial.println("Received a packet where the first byte was 0. Unhandled.");
+    return;
   }
-  Serial.println("B0: " + String(bytes[0]));
+  long currentTime = millis();
+  for(int i = 0; i < MC_REGISTER_ARRAY_LENGTH; i++){
+    if(bytes[0] == importantMotorControllerRegisters[i]){
+      // Serial.println("I care about this packet");
+      motorControllerRegisterLastReadTimes[i] = currentTime;
+      for(int j = 0; j < MC_VALUES_HOLDER_SIZE; j++){
+        receivedMotorControllerValues[i][j] = bytes[j+1]; // Offset 1 since the first byte is the address being received
+      }
+      break; // We found the register we needed to update, stop looping
+    }
+  }
 
-  Serial.println();
+  // if(bytes[0] == (byte)0xA8){
+  //   Serial.println("RPM Received: " + String(0 + bytes[1] + (bytes[2] >> 8)));
+  // }
+  // Serial.println("B0: " + String(bytes[0]));
+
+  // Serial.println();
 };
 
 void VCU::init() {
@@ -109,6 +125,7 @@ void VCU::init() {
     pinMode(S_LEFT_PIN, INPUT);
     pinMode(S_RIGHT_PIN, INPUT);
     pinMode(S_CENTER_PIN, INPUT);
+    pinMode(START_BUTTON_PIN, INPUT_PULLUP);
     
     //Teensy3Clock.set(__DATE__);
 //  Teensy3Clock.set(DateTime(F(__DATE__), F(__TIME__)));
@@ -118,17 +135,18 @@ void VCU::init() {
     // Declare tasks which should be executed
     tasks[0] = new UpdateThrottleAnalogValues(this->apps1samples, this->apps2samples, this->bseSamples);
     tasks[1] = new VehicleStateTask(this);
-    tasks[2] = new SaveDataToSD();
-    tasks[3] = new ValidateShutdownCircuitCurrent(this->sdcpSamples, this->sdcnSamples);
-    tasks[4] = new PrintStatus(this);
-    tasks[5] = new DoSpecificDebugThing(this);
-    tasks[6] = new ProcessSerialInput(this);
-    tasks[7] = new UpdateIMU(&(this->imuAccel), &(this->imuMag), &(this->imuGyro), &(this->imuTemperature));
-    tasks[8] = new HandlePumpAndFan(this);
-    tasks[9] = new HandleBrakeLight(this);
-    tasks[10] = new HandleDashUpdates(this);
-    tasks[11] = new PrintWew();
-    tasks[12] = new PrintLad();
+    tasks[2] = new RequestCanData(this);
+    tasks[3] = new SaveDataToSD(this);
+    tasks[4] = new ValidateShutdownCircuitCurrent(this->sdcpSamples, this->sdcnSamples);
+    tasks[5] = new PrintStatus(this);
+    tasks[6] = new DoSpecificDebugThing(this);
+    tasks[7] = new ProcessSerialInput(this);
+    tasks[8] = new UpdateIMU(&(this->imuAccel), &(this->imuMag), &(this->imuGyro), &(this->imuTemperature));
+    tasks[9] = new HandlePumpAndFan(this);
+    tasks[10] = new HandleBrakeLight(this);
+    tasks[11] = new HandleDashUpdates(this);
+    tasks[12] = new PrintWew();
+    tasks[13] = new PrintLad();
 
     // Default variable initialization
     this->maxAdcValue = pow(2, ADC_READ_RESOLUTION);
@@ -139,10 +157,49 @@ void VCU::init() {
         this->bseSamples[i] = 0;
     }
     this->loopsCompleted = 0;
+
+    // Register important registers to fetch. 
+    // This is not a clean way to do this; each message type is its own concept, and really need their own classes. A map would also help.
+    for(int i = 0; i < MC_REGISTER_ARRAY_LENGTH; i++){
+      importantMotorControllerRegisters[i] = 0;
+      motorControllerRegisterNames[i] = String("none"); // This might be dangerous
+      motorControllerRegisterLastReadTimes[i] = 0;
+      for(int j = 0; i < MC_VALUES_HOLDER_SIZE; i++){
+        receivedMotorControllerValues[i][j] = 0x00;
+      }
+    }
+    importantMotorControllerRegisters[0] = MOTOR_CONTROLLER_ADDRESS_VOLTAGE_BUS;
+    motorControllerRegisterNames[0] = "motorControllerBusVoltage";
+
+    importantMotorControllerRegisters[1] = MOTOR_CONTROLLER_ADDRESS_VOLTAGE_OUTPUT;
+    motorControllerRegisterNames[1] = "motorControllerOutputVoltage";
+
+    importantMotorControllerRegisters[2] = MOTOR_CONTROLLER_ADDRESS_CURRENT_PACK;
+    motorControllerRegisterNames[2] = "motorControllerPackCurrent";
+
+    importantMotorControllerRegisters[3] = MOTOR_CONTROLLER_ADDRESS_CURRENT_PHASE;
+    motorControllerRegisterNames[3] = "motorControllerPhaseCurrent";
+
+    importantMotorControllerRegisters[4] = MOTOR_CONTROLLER_ADDRESS_MOTOR_TEMPERATURE;
+    motorControllerRegisterNames[4] = "motorControllerMotorTemperature";
+
+    importantMotorControllerRegisters[5] = MOTOR_CONTROLLER_ADDRESS_IGBT_TEMPERATURE;
+    motorControllerRegisterNames[5] = "motorControllerIgbtTemperature";
+
+    importantMotorControllerRegisters[6] = MOTOR_CONTROLLER_ADDRESS_SETPOINT_CURRENT;
+    motorControllerRegisterNames[6] = "motorControllerCurrentSetpoint";
+
+    importantMotorControllerRegisters[7] = MOTOR_CONTROLLER_ADDRESS_SETPOINT_TORQUE;
+    motorControllerRegisterNames[7] = "motorControllerTorqueSetpoint";
+    
+    importantMotorControllerRegisters[8] = MOTOR_CONTROLLER_ADDRESS_RPM;
+    motorControllerRegisterNames[8] = "motorControllerRpm";
+
+    
 }
 
 void VCU::sendDashText(String text){
-  Serial.println("Displaying " + text);
+  // Serial.println("Displaying " + text);
   CAN_message_t msg;
   msg.id = canDashAddress;
   msg.len = 4; // Not text.length since we only have 3 digits, plus the target register address
@@ -155,7 +212,7 @@ void VCU::sendDashText(String text){
   msg.buf[2] = charArray[1];
   msg.buf[3] = charArray[2];
   // bamStat.commanded.lastMessageStatus = canBus.write(msg);
-  Serial.println("CBM: " + canBus.write(msg));
+  // Serial.println("CBM: " + canBus.write(msg));
 }
 
 void VCU::setSafe() {
@@ -211,10 +268,10 @@ void VCU::requestShutdown() {
 }
 
 void VCU::requestTransition(CarState::TransitionType transitionType){
-  CarState::NewStateType state = currentCarState->handleUserInput(*this, transitionType);
-  if(state != CarState::NewStateType::SAME_STATE){
+  CarState::CarStateType state = currentCarState->handleUserInput(*this, transitionType);
+  if(state != CarState::CarStateType::SAME_STATE){
     noInterrupts();
-    if(state == CarState::NewStateType::PRECHARGE_STATE){
+    if(state == CarState::CarStateType::PRECHARGE_STATE){
       long timePassedSinceLUTR = millis() - this->lastUserTransitionRequest;
       if(timePassedSinceLUTR < MINIMUM_TRANSITION_DELAY){
         // Serial.println("TPSL: " + String(timePassedSinceLUTR) + ", LUTR: " + String(this->lastUserTransitionRequest));
@@ -224,7 +281,7 @@ void VCU::requestTransition(CarState::TransitionType transitionType){
       delete currentCarState;
       currentCarState = new PrechargeState();
       currentCarState->enter(*this);
-    }else if(state == CarState::NewStateType::OFF_STATE){
+    }else if(state == CarState::CarStateType::OFF_STATE){
       delete currentCarState;
       currentCarState = new OffState();
       currentCarState->enter(*this);
@@ -253,7 +310,7 @@ void VCU::sendMotorControllerMessage(unsigned char *bytes, int messageLength) {
 }
 
 void VCU::setTorqueValue(int value) {
-    unsigned char canTorquePacket[3] = {regTorqueCommanded, (byte)value, (byte)(value>>8)};
+    unsigned char canTorquePacket[3] = {MOTOR_CONTROLLER_ADDRESS_SETPOINT_TORQUE, (byte)value, (byte)(value>>8)};
     this->sendMotorControllerMessage(canTorquePacket, 3);
 }
 
@@ -268,14 +325,33 @@ void VCU::enableMotorController() //DO NOT USE, DANGEROUS TO OVERRIDE LIKE THIS
   this->sendMotorControllerMessage(this->canArrEnableMotorController, 3);
 }
 
+void VCU::requestMotorControllerRegisterOnce(byte registerAddress) {
+  unsigned char packetToSend[3] = {regReadBamocarData, registerAddress, 0x00};
+  this->sendMotorControllerMessage(packetToSend, 3);
+}
+
 void VCU::requestRPM() {
-  this->sendMotorControllerMessage(this->canRequestRPM, 3);
+  //this->sendMotorControllerMessage(this->canRequestRPM, 3);
+  this->requestMotorControllerRegisterOnce(MOTOR_CONTROLLER_ADDRESS_RPM);
 }
 
-void VCU::requestMotorPosition() {
-    this->sendMotorControllerMessage(this->canRequestMotorPosition, 3);
+bool VCU::carIsOn(){
+  return this->currentCarState->getStateType() == CarState::CarStateType::ON_STATE;
 }
 
+bool VCU::carIsOff(){
+  return this->currentCarState->getStateType() == CarState::CarStateType::OFF_STATE;
+}
+
+// This was thrown together for the start button and is different from the checks that the VCU does to determine if it is SAFE to start. 
+// This is essentially a debounce and it (and the main.cpp / .ino) needs to be reworked to cancel precharge. 
+bool VCU::carCanStart(){
+  if(carIsOff() && (this->currentCarState->getTimeInState() > MINIMUM_TRANSITION_DELAY)){
+    return true;
+  }else{
+    return false;
+  }
+}
 
 int VCU::getApps1() {
     int sum = 0;
@@ -448,6 +524,10 @@ bool VCU::right() {
 
 bool VCU::center() {
     return !digitalRead(S_CENTER_PIN);
+}
+
+bool VCU::start() {
+    return !digitalRead(START_BUTTON_PIN);
 }
 
 long VCU::getLoopsCompleted() {
