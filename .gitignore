@@ -1,2 +1,6 @@
 
 *.ipch
+*.bin
+VCU_Firmware/.vscode/extensions.json
+VCU_Firmware/.vscode/extensions.json
+VCU_Firmware/.vscode/settings.json
