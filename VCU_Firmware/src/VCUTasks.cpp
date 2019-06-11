@@ -11,10 +11,10 @@ class UpdateThrottleAnalogValues : public VCUTask {
 public:
     void execute() override {
         // Voodoo-voltage (aka analog) sensor updates
-        pApps1Samples[this->_oversamplingLocation] = analogRead(APPS_1_PIN);
-        pApps2Samples[this->_oversamplingLocation] = analogRead(APPS_2_PIN);
-        pBseSamples[this->_oversamplingLocation] = analogRead(BSE_PIN);
-        this->_oversamplingLocation = (this->_oversamplingLocation + 1) % OVERSAMPLING_BUFFER_SIZE;
+        pApps1Samples[this->oversamplingLocation] = analogRead(APPS_1_PIN);
+        pApps2Samples[this->oversamplingLocation] = analogRead(APPS_2_PIN);
+        pBseSamples[this->oversamplingLocation] = analogRead(BSE_PIN);
+        this->oversamplingLocation = (this->oversamplingLocation + 1) % OVERSAMPLING_BUFFER_SIZE;
     }
 
     UpdateThrottleAnalogValues(int *apps1Array, int *apps2Array, int *bseArray) {
@@ -29,7 +29,7 @@ private:
     int *pApps1Samples;
     int *pApps2Samples;
     int *pBseSamples;
-    int _oversamplingLocation = 0;
+    int oversamplingLocation = 0;
 };
 
 // Save run data to the SD card periodically
@@ -83,14 +83,14 @@ private:
 };
 
 // Update the IMU variables. This class has ownership of the LSM object since nothing else should care about using it.
-class UpdateIMU : public VCUTask {
+class UpdateImu : public VCUTask {
 public:
     void execute() override {
         lsm.getEvent(&*accel, &*mag, &*gyro, &*temperature); // Pass the pointers to the function as references?
         //*mag = _mag;
     }
 
-    explicit UpdateIMU(sensors_event_t *a, sensors_event_t *m, sensors_event_t *g, sensors_event_t *temperatureIn) {
+    explicit UpdateImu(sensors_event_t *a, sensors_event_t *m, sensors_event_t *g, sensors_event_t *temperatureIn) {
         lsm = Adafruit_LSM9DS1();
         if (!lsm.begin()) {
             Serial.println("Oops ... unable to initialize the LSM9DS1. Check your wiring!");
@@ -139,28 +139,28 @@ private:
 class PrintStatus : public VCUTask {
 public:
     void execute() override {
-        int runRate = pVCU->getLoopsCompleted() * (1000000.0 / (getExecutionDelay() + 1.0f)); // avoid division by 0
+        int runRate = pVCU->getLoopsCompleted() * (1000000.0f / (getExecutionDelay() + 1.0f)); // avoid division by 0
         Serial.print(String(">").concat("        "));
-        Serial.print(String(">").concat(pVCU->getSwitchStates()));
+        Serial.print(String(">").concat(VCU::getSwitchStates()));
         Serial.print(String(" a1:").concat(pVCU->getApps1()));
         Serial.print(String(" a2:").concat(pVCU->getApps2()));
         Serial.print(String(" bse:").concat(pVCU->getBse()));
-        Serial.print(String(" a1f:").concat(String(pVCU->getApps1ADCFloat(), 6)));
-        Serial.print(String(" a2f:").concat(String(pVCU->getApps2ADCFloat(), 6)));
+        Serial.print(String(" a1f:").concat(String(pVCU->getApps1AdcFloat(), 6)));
+        Serial.print(String(" a2f:").concat(String(pVCU->getApps2AdcFloat(), 6)));
         Serial.print(String(" a1T:").concat(String(pVCU->getApps1Travel(), 6)));
         Serial.print(String(" a2T:").concat(String(pVCU->getApps2Travel(), 6)));
         Serial.print(String(" APPS:").concat(String(pVCU->getCheckedAndScaledAppsValue(), 6)));
-        Serial.print(String(" sdcp:").concat(pVCU->getSDCCurrentPos()));
-        Serial.print(String(" sdcn:").concat(pVCU->getSDCCurrentNeg()));
+        Serial.print(String(" sdcp:").concat(pVCU->getSdcCurrentPos()));
+        Serial.print(String(" sdcn:").concat(pVCU->getSdcCurrentNeg()));
         Serial.print(String(" rr:").concat(runRate));
-        String x = String(pVCU->imuAccel.acceleration.x).concat(",");
-        String y = String(pVCU->imuAccel.acceleration.y).concat(",");
+        String x = String(String(pVCU->imuAccel.acceleration.x).concat(","));
+        String y = String(String(pVCU->imuAccel.acceleration.y).concat(","));
         String z = String(pVCU->imuAccel.acceleration.z);
         Serial.print(String(" axyz:").concat(x).concat(y).concat(z));
         Serial.println("");
 
-        // Serial.print(String("").concat(String(pVCU->getApps1ADCFloat()*100.0, 6)));
-        // Serial.print(String(",").concat(String(pVCU->getApps2ADCFloat()*100.0, 6)));
+        // Serial.print(String("").concat(String(pVCU->getApps1AdcFloat()*100.0, 6)));
+        // Serial.print(String(",").concat(String(pVCU->getApps2AdcFloat()*100.0, 6)));
         // Serial.print(String(",").concat(String(pVCU->getApps1Travel()*100.0, 6)));
         // Serial.print(String(",").concat(String(pVCU->getApps2Travel()*100.0, 6)));
         // Serial.print(String(",").concat(String(pVCU->getCheckedAndScaledAppsValue()*100.0, 6)));
@@ -395,7 +395,7 @@ public:
     if(value != pumpSetpoint || force){
       pumpSetpoint = value;
       Wire.beginTransmission(PUMP_DIGITAL_POTENTIOMETER);
-      byte valueToWrite = (byte)pVCU->mapf(value, 0.0, 1.0, 0, 127);
+      byte valueToWrite = (byte)VCU::mapf(value, 0.0, 1.0, 0, 127);
       Wire.write(valueToWrite);
       Wire.endTransmission();
       Serial.println("Setting pump to:" + String(valueToWrite));
@@ -444,11 +444,11 @@ private:
 class RequestCanData : public VCUTask {
 public:
     void execute() override {
-        for(int i = 0; i < MC_REGISTER_ARRAY_LENGTH; i++){
-          if(importantMotorControllerRegisters[i] == 0){
+        for(int importantMotorControllerRegister : importantMotorControllerRegisters){
+          if(importantMotorControllerRegister == 0){
             break;
           }
-          pVCU->requestMotorControllerRegisterOnce(importantMotorControllerRegisters[i]);
+          pVCU->requestMotorControllerRegisterOnce(importantMotorControllerRegister);
         }
     }
     explicit RequestCanData(VCU *aVCU) {
@@ -491,7 +491,7 @@ public:
       // Serial.println(String(genericTorque));
       //Serial.println(pVCU->getCheckedAndScaledAppsValue());
       //Serial.println("VCU: " + String("e"));
-      if (pVCU->right()) {
+      if (VCU::right()) {
           Serial.println("Disabling motor controller torque");
           pVCU->disableMotorController();
       }
@@ -543,9 +543,10 @@ public:
             didRead = false;
             serialBufferIndex = 0;
             String serialLineReceived = String(serialBuffer);
+            serialLineReceived.toLowerCase(); // toLowerCase() modifies the string in-place, it doesn't return a new string
             Serial.println("Received: " + serialLineReceived);
             // Dump EEPROM
-            if (pVCU->strContains(serialLineReceived.toLowerCase(), "dumpeeprom")) {
+            if (pVCU->strContains(serialLineReceived, "dumpeeprom")) {
                 int address = 0;
                 byte value;
                 while (address < EEPROM_BYTES) {
@@ -559,7 +560,7 @@ public:
                 Serial.println("");
             }
             // Set a single EEPROM byte
-            if (pVCU->strContains(serialLineReceived.toLowerCase(), "seteeprom")) {
+            if (pVCU->strContains(serialLineReceived, "seteeprom")) {
                 int address = 0;
                 byte value = 0;
                 String processingString, eepromAddress, eepromValue;

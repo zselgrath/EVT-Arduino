@@ -73,12 +73,12 @@
 //--Bamocar Regisers
 #define regReadBamocarData        0x3D
 #define regSysModeBits            0x51
-#define regLogicReadBits          0xD8
+//#define regLogicReadBits          0xD8
 //#define regTorqueCommanded        0x90
 //#define regSignedRPM              0xA8
-// #define regSignedPackCurrent      0x20
-// #define regSignedPhaseCurrent     0x5F
-#define regRPMmax                 0xC8
+//#define regSignedPackCurrent      0x20
+//#define regSignedPhaseCurrent     0x5F
+//#define regRPMmax                 0xC8
 
 #define MC_REGISTER_ARRAY_LENGTH 16
 #define MC_VALUES_HOLDER_SIZE 4
@@ -99,8 +99,8 @@ protected:
         }
     };
 
-    VCUTask() = default;;
-    ~VCUTask() = default;;
+    VCUTask() = default;
+    ~VCUTask() = default;
 
 private:
     virtual volatile unsigned int getExecutionDelay() = 0;
@@ -109,27 +109,12 @@ private:
     // TODO: Check code with a linter
 };
 
-// TODO
-struct VCUStates {
-    // The point of VCU States is to provide a structure which the car state validator (validateStates()) can construct and report on the SD card
-    // The integers represent codes which are to be determined. They may be a series of bit flags, or follow HTTP status code-like numeric ranges... teensy int32 = +2147483648
-    // These states are not used to directly operate the car, only to validate that its operation is correct and report it or shut it down (Maybe rename to e.g. VCUValidationStates)
-public:
-    int states[STATES_ARRAY_SIZE]; // TODO: Unused?
-    // Byte 1 (index 0) contains Master Tractive System status
-    // Byte 2 (index 1) contains BMS 1 status
-    // Byte 3 (index 2) contains BMS 2 status
-    // Byte 4 (index 3) contains Motor Controller status
-    // Byte 5 (index 4) contains Motor status
-    // Byte 6 (index 5) contains Coolant status
-};
-
 class VCU; // Forward-declaration - define VCU class's existence (below) so that CarState can point to objects of type VCU
 
 class CarState {
   public:
-    CarState() = default;;
-    virtual ~CarState(){};
+    CarState() = default;
+    virtual ~CarState() = default;
     enum TransitionType {
         ENABLE,
         DISABLE,
@@ -140,12 +125,12 @@ class CarState {
         PRECHARGE_STATE,
         ON_STATE,
     };
-    virtual void enter(VCU& vcu);
-    virtual void exit(){};
-    virtual CarStateType handleUserInput(VCU& vcu, TransitionType requestedTransition);
-    virtual CarStateType update(VCU& vcu);
-    virtual CarStateType getStateType();
-    virtual long getTimeInState();
+    virtual void enter(VCU& vcu) = 0;
+    virtual void exit(){}; // TODO: Unused
+    virtual CarStateType handleUserInput(VCU& vcu, TransitionType requestedTransition) = 0;
+    virtual CarStateType update(VCU& vcu) = 0;
+    virtual CarStateType getStateType() = 0;
+    virtual long getTimeInState() = 0;
 };
 
 class VCU {
@@ -155,7 +140,6 @@ public:
     bool dischargeActive;           // Whether the signal to enable discharge is active (is this active high or low?)
     bool chargedActive;             // Whether the signal to enable the fourth relay is active (for when precharge is complete)
     bool motorControllerActive;     // Whether the motor controller "enable" relay is active
-    VCUStates recentVCUStates;      // The most recent VCU states evaluated by validateStates() // TODO: Unused?
     sensors_event_t imuTemperature{};
     sensors_event_t imuGyro{};
     sensors_event_t imuMag{};
@@ -169,7 +153,7 @@ public:
 
     void vcuLoop();   // Main execution loop of Teensy code, updates sensor fields, performs safety checks, calls periodic code (like CAN) as needed
     void setSafe();       // Immediately turn off all dangerous pins -- IRequires writeStates() be called afterward by user code
-    void setDangerous();  // Turn on all dangerous settings -- Requires writeStates() be called afterward by user code
+    void setDangerous();  // Turn on all dangerous settings -- Requires writeStates() be called afterward by user code  // TODO: Unused
     void writePinStates();
     bool acceleratorPedalIsPlausible();
     bool carIsOn();
@@ -179,22 +163,18 @@ public:
     void requestStartup();
     void requestShutdown();
 
-    // BAMOCAR Data Methods
-    float getBamocarRPM(); // TODO: Unused?
-    float getBamocarBusVoltage(); // TODO: Unused?
-
     // Primary I/O methods
     float getCheckedAndScaledAppsValue(); // The average of the two APPS travels, or 0.0 if implausible
     float getDeratedTorqueSetpoint();
-    int getSDCCurrentPos();
-    int getSDCCurrentNeg();
+    int getSdcCurrentPos();
+    int getSdcCurrentNeg();
     float getBseTravel();
 
     void sendDashText(String text);
 
     // 5-way Switch Methods
-    String getSwitchStates();
-    bool anySwitchPressed();
+    static String getSwitchStates();
+    static bool anySwitchPressed();
     static bool up();
     static bool down();
     static bool left();
@@ -204,10 +184,9 @@ public:
 
     // Debug information
     long getLoopsCompleted();   // Not idempotent
-    int getTasksSize(); // TODO: Unused?
 
     // Utility methods
-    static float mapf(float in, float fromMin, float fromMax, float toMin, float toMax);
+    static float mapf(float in, float inMin, float inMax, float outMin, float outMax);
 
     static bool strContains(const String &, const String &);
 protected:
@@ -228,7 +207,6 @@ protected:
     int bseSamples[OVERSAMPLING_BUFFER_SIZE];
     int sdcpSamples[NONCRITICAL_OVERSAMPLING_BUFFER_SIZE]{};
     int sdcnSamples[NONCRITICAL_OVERSAMPLING_BUFFER_SIZE]{};
-    int oversamplingLocation{}; // TODO: Unused?
     int maxAdcValue{};
 
     // Debug variables
@@ -244,7 +222,6 @@ protected:
     void disableMotorController();
     void enableMotorController();
     void requestMotorControllerRegisterOnce(byte registerAddress);
-    void requestRPM();
     
 //    void blockingRequest(unsigned char *bytes, int messageLength); // TODO: add a blocking CAN read
 
@@ -252,7 +229,6 @@ protected:
     VCUTask **tasks = new VCUTask *[TASKS_ARRAY_SIZE];
 
     // Operational methods
-    //VCUStates validateStates(); // OLD. Called in vcuLoop(); Performs safety-related checks on the car to determine/validate car state(s).
     CarState* currentCarState;
     long lastUserTransitionRequest = 0;
     const long MINIMUM_TRANSITION_DELAY = 3000; // TODO: Make like 10 seconds
@@ -271,11 +247,11 @@ protected:
     const byte MOTOR_CONTROLLER_ADDRESS_SETPOINT_CURRENT = 0x22;
     const byte MOTOR_CONTROLLER_ADDRESS_SETPOINT_TORQUE = 0x90;
     const byte MOTOR_CONTROLLER_ADDRESS_RPM = 0xA8;
-    const byte MOTOR_CONTROLLER_ADDRESS_MOTOR_POSITION = 0x6D;
+    const byte MOTOR_CONTROLLER_ADDRESS_MOTOR_POSITION = 0x6D;  // TODO: Unused
 
     unsigned char canArrEnableMotorController[3] = {regSysModeBits, 0x00 & 0xFF, 0x00 & 0xFF};
     unsigned char canArrDisableMotorController[3] = {regSysModeBits, 0x04 & 0xFF, 0x00 & 0xFF};
-    unsigned char canArrStopMotorController[3] = {MOTOR_CONTROLLER_ADDRESS_SETPOINT_TORQUE, 0, 0}; // Sets the torque to 0
+    unsigned char canArrStopMotorController[3] = {MOTOR_CONTROLLER_ADDRESS_SETPOINT_TORQUE, 0, 0}; // Sets the torque to 0  // TODO: Unused
 
     // unsigned char canRequestRPM[3] = {regReadBamocarData, 0xA8, 0x00}; // Request RPM once
     // unsigned char canRequestMotorPosition[3] = {regReadBamocarData, 0x6D, 0x00}; // Request position once
@@ -288,13 +264,13 @@ protected:
 private:
     void requestTransition(CarState::TransitionType transitionType);
 
-    // ADC -> Samples array -> getApps1() -> getApps1ADCFloat() -> getApps1Travel() -> getCheckedAndScaledAppsValue() -> getDeratedTorqueSetpoint()
+    // ADC -> Samples array -> getApps1() -> getApps1AdcFloat() -> getApps1Travel() -> getCheckedAndScaledAppsValue() -> getDeratedTorqueSetpoint()
     int getApps1(); // Average of the sampling array
     int getApps2();
     int getBse();
-    float getApps1ADCFloat(); // Sampling array as a percentage between 0V and AREF
-    float getApps2ADCFloat();
-    float getBseADCFloat(); 
+    float getApps1AdcFloat(); // Sampling array as a percentage between 0V and AREF
+    float getApps2AdcFloat();
+    float getBseAdcFloat();
     float getApps1Travel(); // The scaled percentage between 0V and AREF which is then mapped to some calibrated throttle value
     float getApps2Travel();
     FlexCAN canBus{};

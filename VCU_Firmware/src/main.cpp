@@ -37,7 +37,7 @@ void setup() {
 // the loop routine runs over and over again forever:
 void loop() {
   vcu.vcuLoop();
-  if(vcu.anySwitchPressed()){
+  if(VCU::anySwitchPressed()){
     digitalWrite(led, LOW);
     if(vcu.down()) {
       vcu.requestStartup();

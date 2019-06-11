@@ -63,7 +63,7 @@ static void onReceive(int packetSize) {
   // Serial.println("B0: " + String(bytes[0]));
 
   // Serial.println();
-};
+}
 
 void VCU::init() {
     // BEGIN CRITICAL SECTION. BE CAREFUL MODIFYING THIS CODE. 
@@ -80,8 +80,8 @@ void VCU::init() {
 
     // CAN Setup
     CAN.setPins(CAN_CS_PIN, CAN_INT_PIN);
-    if (!CAN.begin(250E3)) {
-      while(1){
+    if (!CAN.begin((long)250E3)) {
+      while(true){
         Serial.println("Starting CAN failed!");
         delay(100);
       }
@@ -141,7 +141,7 @@ void VCU::init() {
     tasks[5] = new PrintStatus(this);
     tasks[6] = new DoSpecificDebugThing(this);
     tasks[7] = new ProcessSerialInput(this);
-    tasks[8] = new UpdateIMU(&(this->imuAccel), &(this->imuMag), &(this->imuGyro), &(this->imuTemperature));
+    tasks[8] = new UpdateImu(&(this->imuAccel), &(this->imuMag), &(this->imuGyro), &(this->imuTemperature));
     tasks[9] = new HandlePumpAndFan(this);
     tasks[10] = new HandleBrakeLight(this);
     tasks[11] = new HandleDashUpdates(this);
@@ -194,8 +194,6 @@ void VCU::init() {
     
     importantMotorControllerRegisters[8] = MOTOR_CONTROLLER_ADDRESS_RPM;
     motorControllerRegisterNames[8] = "motorControllerRpm";
-
-    
 }
 
 void VCU::sendDashText(String text){
@@ -241,7 +239,7 @@ void VCU::writePinStates() {
 
 void VCU::vcuLoop() {
     for (int i = 0; i < TASKS_ARRAY_SIZE; i++) {
-        volatile long currentTime = micros(); // Putting this inside the for loop may make sense
+        volatile unsigned long currentTime = micros(); // Putting this inside the for loop may make sense
         if (tasks[i]->shouldExecute(currentTime)) {
             tasks[i]->execute();
         }
@@ -250,7 +248,7 @@ void VCU::vcuLoop() {
 }
 
 int VCU::calculateTorqueRegisterValueForWrite(){
-  float toReturn = this->mapf(this->getDeratedTorqueSetpoint(), 0.0, 1.0, 0, -32767); // the max might actually be 32768
+  float toReturn = VCU::mapf(this->getDeratedTorqueSetpoint(), 0.0, 1.0, 0, -32767); // the max might actually be 32768
   if(toReturn < -32767){
     toReturn = -32767;
   }else if(toReturn > -10){
@@ -272,9 +270,9 @@ void VCU::requestTransition(CarState::TransitionType transitionType){
   if(state != CarState::CarStateType::SAME_STATE){
     noInterrupts();
     if(state == CarState::CarStateType::PRECHARGE_STATE){
-      long timePassedSinceLUTR = millis() - this->lastUserTransitionRequest;
-      if(timePassedSinceLUTR < MINIMUM_TRANSITION_DELAY){
-        // Serial.println("TPSL: " + String(timePassedSinceLUTR) + ", LUTR: " + String(this->lastUserTransitionRequest));
+      long timePassedSinceLastUserTransitionRequest = millis() - this->lastUserTransitionRequest;
+      if(timePassedSinceLastUserTransitionRequest < MINIMUM_TRANSITION_DELAY){
+        // Serial.println("TPSL: " + String(timePassedSinceLastUserTransitionRequest) + ", LUTR: " + String(this->lastUserTransitionRequest));
         return; // It has not been long enough since the last transition
       }
       this->lastUserTransitionRequest = millis();
@@ -289,7 +287,7 @@ void VCU::requestTransition(CarState::TransitionType transitionType){
     // NOTE: We do not allow user transitions to ON_STATE. That can only be done by the precharge state update method, if its verification passes. 
     interrupts();
   }
-};
+}
 
 void VCU::sendMotorControllerMessage(unsigned char *bytes, int messageLength) {
 //    if (messageLength > 0) {
@@ -330,11 +328,6 @@ void VCU::requestMotorControllerRegisterOnce(byte registerAddress) {
   this->sendMotorControllerMessage(packetToSend, 3);
 }
 
-void VCU::requestRPM() {
-  //this->sendMotorControllerMessage(this->canRequestRPM, 3);
-  this->requestMotorControllerRegisterOnce(MOTOR_CONTROLLER_ADDRESS_RPM);
-}
-
 bool VCU::carIsOn(){
   return this->currentCarState->getStateType() == CarState::CarStateType::ON_STATE;
 }
@@ -355,16 +348,16 @@ bool VCU::carCanStart(){
 
 int VCU::getApps1() {
     int sum = 0;
-    for (int apps1sample : apps1samples) {
-        sum += apps1sample;
+    for (int apps1Sample : apps1samples) {
+        sum += apps1Sample;
     }
     return sum / OVERSAMPLING_BUFFER_SIZE;
 }
 
 int VCU::getApps2() {
     int sum = 0;
-    for (int apps2sample : apps2samples) {
-        sum += apps2sample;
+    for (int apps2Sample : apps2samples) {
+        sum += apps2Sample;
     }
     return sum / OVERSAMPLING_BUFFER_SIZE;
 }
@@ -378,33 +371,33 @@ int VCU::getBse() {
 }
 
 // Returns the APPS 1 float value as scaled from 0V to AREF (3.3V)
-float VCU::getApps1ADCFloat() {
+float VCU::getApps1AdcFloat() {
     return VCU::mapf(this->getApps1(), 0, this->maxAdcValue, 0.0f, 1.0f);
 }
 // Returns the APPS 2 float value as scaled from 0V to AREF (3.3V)
-float VCU::getApps2ADCFloat() {
+float VCU::getApps2AdcFloat() {
     return VCU::mapf(this->getApps2(), 0, this->maxAdcValue, 0.0f, 1.0f);
 }
 // Returns the BSE float value as scaled from 0V to AREF (3.3V)
-float VCU::getBseADCFloat() {
+float VCU::getBseAdcFloat() {
     return VCU::mapf(this->getBse(), 0, this->maxAdcValue, 0.0f, 1.0f);
 }
 
 float VCU::getApps1Travel(){
   // These values are the ADC scale readings from the extremes of physical travel
-  float toReturn = this->mapf(this->getApps1ADCFloat(), 0.1604, 0.411, 0.0f, 1.0f); 
+  float toReturn = VCU::mapf(this->getApps1AdcFloat(), 0.1604, 0.411, 0.0f, 1.0f);
   return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
 }
 
 float VCU::getApps2Travel(){
   // These values are the ADC scale readings from the extremes of physical travel
-  float toReturn = this->mapf(this->getApps2ADCFloat(), 0.1128, 0.2792, 0.0f, 1.0f); 
+  float toReturn = VCU::mapf(this->getApps2AdcFloat(), 0.1128, 0.2792, 0.0f, 1.0f);
   return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
 }
 
 float VCU::getBseTravel(){
   // These values are the ADC scale readings from the extremes of physical travel
-  float toReturn = this->mapf(this->getBseADCFloat(), 0.1, 0.2, 0.0f, 1.0f); 
+  float toReturn = VCU::mapf(this->getBseAdcFloat(), 0.1, 0.2, 0.0f, 1.0f);
   return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
 }
 
@@ -438,7 +431,7 @@ float VCU::getCheckedAndScaledAppsValue() {
       // Serial.println(apps1Scaled < (apps2Scaled / 1.08));
       return 0.0f;
     }else{
-      physicalTravel = (apps1Scaled + apps2Scaled)/2.0;
+      physicalTravel = (apps1Scaled + apps2Scaled)/2.0f;
     }
     if(physicalTravel > 1.0f){
       physicalTravel = 1.0f;
@@ -449,7 +442,7 @@ float VCU::getCheckedAndScaledAppsValue() {
     float toReturn = 0.0f;
     // Scale based on a pedal deadzone
     if(physicalTravel > PEDAL_DEADZONE){
-      toReturn = this->mapf(physicalTravel, PEDAL_DEADZONE, 1.0, 0.0f, 1.0f);  // We do not currently scale based on the full-travel deadzone because that could increase the torque requested by the driver. This may change.
+      toReturn = VCU::mapf(physicalTravel, PEDAL_DEADZONE, 1.0, 0.0f, 1.0f);  // We do not currently scale based on the full-travel deadzone because that could increase the torque requested by the driver. This may change.
     }
     // Make sure that the scaled value is possible
     if(toReturn < 0.0f){
@@ -465,7 +458,7 @@ float VCU::getDeratedTorqueSetpoint(){
   return this->getCheckedAndScaledAppsValue(); // TODO: Make this real.
 }
 
-int VCU::getSDCCurrentPos() {
+int VCU::getSdcCurrentPos() {
     int sum = 0;
     for (int sdcpSample : sdcpSamples) {
         sum += sdcpSample;
@@ -473,7 +466,7 @@ int VCU::getSDCCurrentPos() {
     return sum / NONCRITICAL_OVERSAMPLING_BUFFER_SIZE;
 }
 
-int VCU::getSDCCurrentNeg() {
+int VCU::getSdcCurrentNeg() {
     int sum = 0;
     for (int sdcnSample : sdcnSamples) {
         sum += sdcnSample;
@@ -484,26 +477,26 @@ int VCU::getSDCCurrentNeg() {
 
 String VCU::getSwitchStates() {
     String result = "";
-    if (this->up()) {
+    if (VCU::up()) {
         result.concat('u');
     }
-    if (this->down()) {
+    if (VCU::down()) {
         result.concat('d');
     }
-    if (this->left()) {
+    if (VCU::left()) {
         result.concat('l');
     }
-    if (this->right()) {
+    if (VCU::right()) {
         result.concat('r');
     }
-    if (this->center()) {
+    if (VCU::center()) {
         result.concat('c');
     }
     return result;
 }
 
 bool VCU::anySwitchPressed() {
-    return (this->up() || this->down() || this->left() || this->right() || this->center());
+    return (VCU::up() || VCU::down() || VCU::left() || VCU::right() || VCU::center());
 }
 
 bool VCU::up() {
@@ -536,8 +529,8 @@ long VCU::getLoopsCompleted() {
     return result;
 }
 
-float VCU::mapf(float x, float in_min, float in_max, float out_min, float out_max) {
-    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+float VCU::mapf(float x, float inMin, float inMax, float outMin, float outMax) {
+    return (x - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
 }
 
 bool VCU::strContains(const String &outer, const String &inner) {
