@@ -42,21 +42,21 @@ public:
 
     explicit SaveDataToSD(VCU *aVCU) {
         pVCU = aVCU;
-        String toAppend = motorControllerRegisterNames[0];
+        String toAppend = mcObjects[0].name;
         for(int i = 1; i < MC_REGISTER_ARRAY_LENGTH; i++){
-          toAppend = toAppend + ", " + motorControllerRegisterNames[i];
+          toAppend = toAppend + ", " + mcObjects[i].name;
         }
         Serial.println("Labels: " + getTitleString());
     }
 
     String getTitleString(){
       if(titleString == "" || millis() < 1000){
-        String toAppend = motorControllerRegisterNames[0];
+        String toAppend = mcObjects[0].name;
         for(int i = 1; i < MC_REGISTER_ARRAY_LENGTH; i++){
-          if(importantMotorControllerRegisters[i] == 0){
+          if(mcObjects[i].registerLocation == 0){
             break;
           }
-          toAppend = toAppend + ",  " + motorControllerRegisterNames[i];
+          toAppend = toAppend + ",  " + mcObjects[i].name;
         }
         titleString = toAppend;
         // Serial.println("Labels: " + toAppend);
@@ -65,12 +65,12 @@ public:
     }
 
     String getMotorControllerString(){
-      String toAppend = (String((receivedMotorControllerValues[0][1] << 8) + receivedMotorControllerValues[0][0]));
+      String toAppend = (String((mcObjects[0].values[1] << 8) + mcObjects[0].values[0]));
       for(int i = 1; i < MC_REGISTER_ARRAY_LENGTH; i++){
-        if(importantMotorControllerRegisters[i] == 0){
+        if(mcObjects[i].registerLocation == 0){
           break;
         }
-        short value = (receivedMotorControllerValues[i][1] << 8) + receivedMotorControllerValues[i][0]; // Not sure which is more or less significant (endianness)
+        short value = (mcObjects[i].values[1] << 8) + mcObjects[i].values[0]; // Not sure which is more or less significant (endianness)
         toAppend = toAppend + ", " + String(value); 
       }
       return toAppend;
@@ -444,12 +444,12 @@ private:
 class RequestCanData : public VCUTask {
 public:
     void execute() override {
-        for(int importantMotorControllerRegister : importantMotorControllerRegisters){
-          if(importantMotorControllerRegister == 0){
-            break;
-          }
-          pVCU->requestMotorControllerRegisterOnce(importantMotorControllerRegister);
+      for(int i = 0; i < MC_REGISTER_ARRAY_LENGTH; i++){
+        if(mcObjects[i].registerLocation == 0){
+          break;
         }
+        pVCU->requestMotorControllerRegisterOnce(mcObjects[i].registerLocation);
+      }
     }
     explicit RequestCanData(VCU *aVCU) {
         pVCU = aVCU;

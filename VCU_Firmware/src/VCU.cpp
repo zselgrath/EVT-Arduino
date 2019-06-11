@@ -47,11 +47,11 @@ static void onReceive(int packetSize) {
   }
   long currentTime = millis();
   for(int i = 0; i < MC_REGISTER_ARRAY_LENGTH; i++){
-    if(bytes[0] == importantMotorControllerRegisters[i]){
+    if(bytes[0] == mcObjects[i].registerLocation){
       // Serial.println("I care about this packet");
-      motorControllerRegisterLastReadTimes[i] = currentTime;
+      mcObjects[i].lastReadTime = currentTime;
       for(int j = 0; j < MC_VALUES_HOLDER_SIZE; j++){
-        receivedMotorControllerValues[i][j] = bytes[j+1]; // Offset 1 since the first byte is the address being received
+        mcObjects[i].values[j] = bytes[j+1]; // Offset 1 since the first byte is the address being received
       }
       break; // We found the register we needed to update, stop looping
     }
@@ -150,7 +150,6 @@ void VCU::init() {
 
     // Default variable initialization
     this->maxAdcValue = pow(2, ADC_READ_RESOLUTION);
-    this->oversamplingLocation = 0;
     for (int i = 0; i < OVERSAMPLING_BUFFER_SIZE; i++) {
         this->apps1samples[i] = 0;
         this->apps2samples[i] = 0;
@@ -161,39 +160,43 @@ void VCU::init() {
     // Register important registers to fetch. 
     // This is not a clean way to do this; each message type is its own concept, and really need their own classes. A map would also help.
     for(int i = 0; i < MC_REGISTER_ARRAY_LENGTH; i++){
-      importantMotorControllerRegisters[i] = 0;
-      motorControllerRegisterNames[i] = String("none"); // This might be dangerous
-      motorControllerRegisterLastReadTimes[i] = 0;
+      mcObjects[i].registerLocation = 0;
+      mcObjects[i].name = String("none");
+      mcObjects[i].lastReadTime = 0;
+      // importantMotorControllerRegisters[i] = 0;
+      // motorControllerRegisterNames[i] = String("none"); // This might be dangerous
+      // motorControllerRegisterLastReadTimes[i] = 0;
       for(int j = 0; i < MC_VALUES_HOLDER_SIZE; i++){
-        receivedMotorControllerValues[i][j] = 0x00;
+        mcObjects[i].values[j] = 0x00;
+        // receivedMotorControllerValues[i][j] = 0x00;
       }
     }
-    importantMotorControllerRegisters[0] = MOTOR_CONTROLLER_ADDRESS_VOLTAGE_BUS;
-    motorControllerRegisterNames[0] = "motorControllerBusVoltage";
+    mcObjects[0].registerLocation = MOTOR_CONTROLLER_ADDRESS_VOLTAGE_BUS;
+    mcObjects[0].name = "motorControllerBusVoltage";
 
-    importantMotorControllerRegisters[1] = MOTOR_CONTROLLER_ADDRESS_VOLTAGE_OUTPUT;
-    motorControllerRegisterNames[1] = "motorControllerOutputVoltage";
+    mcObjects[1].registerLocation = MOTOR_CONTROLLER_ADDRESS_VOLTAGE_OUTPUT;
+    mcObjects[1].name = "motorControllerOutputVoltage";
 
-    importantMotorControllerRegisters[2] = MOTOR_CONTROLLER_ADDRESS_CURRENT_PACK;
-    motorControllerRegisterNames[2] = "motorControllerPackCurrent";
+    mcObjects[2].registerLocation = MOTOR_CONTROLLER_ADDRESS_CURRENT_PACK;
+    mcObjects[2].name = "motorControllerPackCurrent";
 
-    importantMotorControllerRegisters[3] = MOTOR_CONTROLLER_ADDRESS_CURRENT_PHASE;
-    motorControllerRegisterNames[3] = "motorControllerPhaseCurrent";
+    mcObjects[3].registerLocation = MOTOR_CONTROLLER_ADDRESS_CURRENT_PHASE;
+    mcObjects[3].name = "motorControllerPhaseCurrent";
 
-    importantMotorControllerRegisters[4] = MOTOR_CONTROLLER_ADDRESS_MOTOR_TEMPERATURE;
-    motorControllerRegisterNames[4] = "motorControllerMotorTemperature";
+    mcObjects[4].registerLocation = MOTOR_CONTROLLER_ADDRESS_MOTOR_TEMPERATURE;
+    mcObjects[4].name = "motorControllerMotorTemperature";
 
-    importantMotorControllerRegisters[5] = MOTOR_CONTROLLER_ADDRESS_IGBT_TEMPERATURE;
-    motorControllerRegisterNames[5] = "motorControllerIgbtTemperature";
+    mcObjects[5].registerLocation = MOTOR_CONTROLLER_ADDRESS_IGBT_TEMPERATURE;
+    mcObjects[5].name = "motorControllerIgbtTemperature";
 
-    importantMotorControllerRegisters[6] = MOTOR_CONTROLLER_ADDRESS_SETPOINT_CURRENT;
-    motorControllerRegisterNames[6] = "motorControllerCurrentSetpoint";
+    mcObjects[6].registerLocation = MOTOR_CONTROLLER_ADDRESS_SETPOINT_CURRENT;
+    mcObjects[6].name = "motorControllerCurrentSetpoint";
 
-    importantMotorControllerRegisters[7] = MOTOR_CONTROLLER_ADDRESS_SETPOINT_TORQUE;
-    motorControllerRegisterNames[7] = "motorControllerTorqueSetpoint";
+    mcObjects[7].registerLocation = MOTOR_CONTROLLER_ADDRESS_SETPOINT_TORQUE;
+    mcObjects[7].name = "motorControllerTorqueSetpoint";
     
-    importantMotorControllerRegisters[8] = MOTOR_CONTROLLER_ADDRESS_RPM;
-    motorControllerRegisterNames[8] = "motorControllerRpm";
+    mcObjects[8].registerLocation = MOTOR_CONTROLLER_ADDRESS_RPM;
+    mcObjects[8].name = "motorControllerRpm";
 }
 
 void VCU::sendDashText(String text){

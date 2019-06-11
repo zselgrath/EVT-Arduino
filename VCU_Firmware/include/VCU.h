@@ -279,9 +279,13 @@ private:
 // Motor Controller CAN registers, received value holders, etc.
 // These are static so that they can be accessed from the receive interrupt.
 // We really need better structures for these, e.g., HashMaps and classes.
-static byte importantMotorControllerRegisters[MC_REGISTER_ARRAY_LENGTH];
-static String motorControllerRegisterNames[MC_REGISTER_ARRAY_LENGTH];
-static long motorControllerRegisterLastReadTimes[MC_REGISTER_ARRAY_LENGTH];
-static byte receivedMotorControllerValues[MC_REGISTER_ARRAY_LENGTH][MC_VALUES_HOLDER_SIZE];
+struct importantMotorControllerCanObject{
+    byte registerLocation;
+    String name;
+    long lastReadTime;
+    byte values[MC_VALUES_HOLDER_SIZE];
+};
+static importantMotorControllerCanObject mcObjects [MC_REGISTER_ARRAY_LENGTH];
+
 
 #endif
