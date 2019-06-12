@@ -22,6 +22,12 @@
 #include <SD.h>
 #include <HardwareSerial.h>
 
+//#define USE_SD_LOGGING
+#define USE_I2C_LOGGING
+#define LOGGER_I2C_ADDRESS 1
+#include <SD.h> // PaulStoffregen SD code. Card must be formatted as FAT32
+#include <TimeLib.h> // Teensy TimeLib
+
 // Header file operational constants
 #define OVERSAMPLING_BUFFER_SIZE 32
 #define NONCRITICAL_OVERSAMPLING_BUFFER_SIZE 8
@@ -82,6 +88,12 @@
 
 #define MC_REGISTER_ARRAY_LENGTH 16
 #define MC_VALUES_HOLDER_SIZE 4
+
+// SD Card Logging variables
+static File dataFile;
+// static const int SD_CHIP_SELECT = BUILTIN_SDCARD;
+#define SD_CHIP_SELECT BUILTIN_SDCARD
+static int sdLoggerStartTime;
 
 class VCUTask {
 protected:
@@ -180,7 +192,7 @@ public:
     static bool left();
     static bool right();
     static bool center();
-    static bool start();
+    bool start();
 
     // Debug information
     long getLoopsCompleted();   // Not idempotent
@@ -191,7 +203,9 @@ public:
     static bool strContains(const String &, const String &);
 protected:
     // Friend classes (usually VCUTask classes) which can access the protected VCU variables here
+    friend class UpdateThrottleAnalogValues;
     friend class DoSpecificDebugThing;
+    friend class SaveDataToSD;
     friend class VehicleStateTask;
     friend class OffState; // Friended to allow writing values to stop motor controller
     friend class OnState;
@@ -208,6 +222,7 @@ protected:
     int sdcpSamples[NONCRITICAL_OVERSAMPLING_BUFFER_SIZE]{};
     int sdcnSamples[NONCRITICAL_OVERSAMPLING_BUFFER_SIZE]{};
     int maxAdcValue{};
+    bool startIsPressed = false;
 
     // Debug variables
     int loopsCompleted{};

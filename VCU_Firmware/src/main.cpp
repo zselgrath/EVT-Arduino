@@ -40,7 +40,7 @@ void loop() {
   if(VCU::anySwitchPressed()){
     digitalWrite(led, LOW);
     if(vcu.down()) {
-      vcu.requestStartup();
+      //vcu.requestStartup();
     }
   }else{
     digitalWrite(led, HIGH);

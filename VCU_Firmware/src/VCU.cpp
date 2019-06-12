@@ -76,6 +76,7 @@ void VCU::init() {
     pinMode(DISCHARGE_PIN, OUTPUT);
     pinMode(CHARGED_ACTIVE_PIN, OUTPUT);
     pinMode(MOTOR_CONTROLLER_ENABLE_PIN, OUTPUT);
+    // pinMode(SD_CHIP_SELECT, OUTPUT);
     this->writePinStates();
 
     // CAN Setup
@@ -132,22 +133,6 @@ void VCU::init() {
 //  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
     //RTC.adjust(DateTime(__DATE__, __TIME__));
 
-    // Declare tasks which should be executed
-    tasks[0] = new UpdateThrottleAnalogValues(this->apps1samples, this->apps2samples, this->bseSamples);
-    tasks[1] = new VehicleStateTask(this);
-    tasks[2] = new RequestCanData(this);
-    tasks[3] = new SaveDataToSD(this);
-    tasks[4] = new ValidateShutdownCircuitCurrent(this->sdcpSamples, this->sdcnSamples);
-    tasks[5] = new PrintStatus(this);
-    tasks[6] = new DoSpecificDebugThing(this);
-    tasks[7] = new ProcessSerialInput(this);
-    tasks[8] = new UpdateImu(&(this->imuAccel), &(this->imuMag), &(this->imuGyro), &(this->imuTemperature));
-    tasks[9] = new HandlePumpAndFan(this);
-    tasks[10] = new HandleBrakeLight(this);
-    tasks[11] = new HandleDashUpdates(this);
-    tasks[12] = new PrintWew();
-    tasks[13] = new PrintLad();
-
     // Default variable initialization
     this->maxAdcValue = pow(2, ADC_READ_RESOLUTION);
     for (int i = 0; i < OVERSAMPLING_BUFFER_SIZE; i++) {
@@ -197,6 +182,22 @@ void VCU::init() {
     
     mcObjects[8].registerLocation = MOTOR_CONTROLLER_ADDRESS_RPM;
     mcObjects[8].name = "motorControllerRpm";
+
+    // Declare tasks which should be executed
+    tasks[0] = new UpdateThrottleAnalogValues(this->apps1samples, this->apps2samples, this->bseSamples, this);
+    tasks[1] = new VehicleStateTask(this);
+    tasks[2] = new RequestCanData(this);
+    tasks[3] = new SaveDataToSD(this);
+    tasks[4] = new ValidateShutdownCircuitCurrent(this->sdcpSamples, this->sdcnSamples);
+    tasks[5] = new PrintStatus(this);
+    tasks[6] = new DoSpecificDebugThing(this);
+    tasks[7] = new ProcessSerialInput(this);
+    tasks[8] = new UpdateImu(&(this->imuAccel), &(this->imuMag), &(this->imuGyro), &(this->imuTemperature));
+    tasks[9] = new HandlePumpAndFan(this);
+    tasks[10] = new HandleBrakeLight(this);
+    tasks[11] = new HandleDashUpdates(this);
+    tasks[12] = new PrintWew();
+    tasks[13] = new PrintLad();
 }
 
 void VCU::sendDashText(String text){
@@ -271,7 +272,7 @@ void VCU::requestShutdown() {
 void VCU::requestTransition(CarState::TransitionType transitionType){
   CarState::CarStateType state = currentCarState->handleUserInput(*this, transitionType);
   if(state != CarState::CarStateType::SAME_STATE){
-    noInterrupts();
+    
     if(state == CarState::CarStateType::PRECHARGE_STATE){
       long timePassedSinceLastUserTransitionRequest = millis() - this->lastUserTransitionRequest;
       if(timePassedSinceLastUserTransitionRequest < MINIMUM_TRANSITION_DELAY){
@@ -279,16 +280,21 @@ void VCU::requestTransition(CarState::TransitionType transitionType){
         return; // It has not been long enough since the last transition
       }
       this->lastUserTransitionRequest = millis();
+      noInterrupts();
       delete currentCarState;
       currentCarState = new PrechargeState();
+      interrupts();
       currentCarState->enter(*this);
     }else if(state == CarState::CarStateType::OFF_STATE){
+      noInterrupts();
       delete currentCarState;
       currentCarState = new OffState();
+      interrupts();
       currentCarState->enter(*this);
+    }else{
+      Serial.println("Unhandled user transition request!");
     }
     // NOTE: We do not allow user transitions to ON_STATE. That can only be done by the precharge state update method, if its verification passes. 
-    interrupts();
   }
 }
 
@@ -522,8 +528,18 @@ bool VCU::center() {
     return !digitalRead(S_CENTER_PIN);
 }
 
+// static bool enabled = false;
 bool VCU::start() {
-    return !digitalRead(START_BUTTON_PIN);
+  // bool result = !digitalRead(START_BUTTON_PIN);
+  bool result = this->startIsPressed;
+  // if(enabled != result){
+  //   enabled = result;
+  //   Serial.println("Start Changed to " + String(enabled));
+  // }
+  // if(result){
+  //   pinMode(START_BUTTON_PIN, INPUT_PULLUP);
+  // }
+  return result;
 }
 
 long VCU::getLoopsCompleted() {
