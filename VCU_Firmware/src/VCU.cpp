@@ -6,6 +6,8 @@
 
 // Reads ADC values for both APPS sensors as well as the BSE and appends them to the oversampling array
 
+//TODO: bms probably shouldn't be global
+
 static void onReceive(int packetSize) {
   // received a packet
   // Serial.print("\nReceived ");
