@@ -2,6 +2,11 @@
 #include "VCUTasks.cpp"
 //#include "CanMessages.cpp"
 
+importantMotorControllerCanObject mcObjects [MC_REGISTER_ARRAY_LENGTH];
+short LastMotorControllerBusVoltageRaw = 0;
+long LastMotorControllerBusVoltageReportTime = 0;
+
+
 //#define Serial 0x0
 
 // Reads ADC values for both APPS sensors as well as the BSE and appends them to the oversampling array
@@ -52,6 +57,12 @@ static void onReceive(int packetSize) {
       mcObjects[i].lastReadTime = currentTime;
       for(int j = 0; j < MC_VALUES_HOLDER_SIZE; j++){
         mcObjects[i].values[j] = bytes[j+1]; // Offset 1 since the first byte is the address being received
+      }
+
+      if(mcObjects[i].registerLocation == VCU::MOTOR_CONTROLLER_ADDRESS_VOLTAGE_BUS){
+        LastMotorControllerBusVoltageRaw = (bytes[2] << 8) + bytes[1];
+        Serial.println("V: " + String(VCU::getHumanReadableVoltage(LastMotorControllerBusVoltageRaw)));
+        LastMotorControllerBusVoltageReportTime = millis();
       }
       break; // We found the register we needed to update, stop looping
     }
@@ -526,6 +537,14 @@ bool VCU::right() {
 
 bool VCU::center() {
     return !digitalRead(S_CENTER_PIN);
+}
+
+float VCU::getHumanReadableVoltage(short in){
+    float toReturn;
+    float percentOfVoltage = ((float)in / 16384.0);
+    float actualVoltage = percentOfVoltage * 300.0;
+    toReturn = actualVoltage;
+    return toReturn;
 }
 
 // static bool enabled = false;

@@ -410,9 +410,14 @@ class PrechargeState: public CarState {
         bool prechargeCanContinue = prechargeIsSafeToContinue(vcu);
         if(prechargeCanContinue){
           bool carIsPrecharged = false;
-          if(currentPrechargeTime > 2000){
-            carIsPrecharged = true; // TODO: THIS IS FAKE
+          if(currentPrechargeTime > 4000){ // TODO: THIS IS FAKE
+            carIsPrecharged = getPrechargeIsCompleted(vcu);
           }
+          if(currentPrechargeTime > 5000){
+            Serial.println("Precharge Timeout 2");
+            return CarStateType::OFF_STATE;
+          }
+
           // TODO: Determine if the car is ready to enable here
           if(carIsPrecharged){
             Serial.println("Precharge ending, CAR TURNING ON");
@@ -446,6 +451,24 @@ class PrechargeState: public CarState {
       return true;
     }
 
+    // TODO: THIS IS FAKEish
+    static bool getPrechargeIsCompleted(VCU& vcu){
+      if(LastMotorControllerBusVoltageReportTime == 0){
+        Serial.println("We never got a bus voltage report.");
+        return false; // We never got a MC bus voltage
+      }
+      if(millis() > LastMotorControllerBusVoltageReportTime + 100L ){
+        Serial.println("The bus voltage is too old.");
+        return false; // The bus voltage is too old
+      }
+      if(VCU::getHumanReadableVoltage(LastMotorControllerBusVoltageRaw) < 120.0){
+        Serial.println("The bus voltage is too low.");
+        return false;
+      }
+      Serial.println("PRECHARGE IS COMPLETE");
+      return true;
+    };
+
     static bool prechargeIsSafeToContinue(VCU& vcu){
       // TODO: Determine if the car is safe and that precharge should proceed here
       if(!vcu.acceleratorPedalIsPlausible()){
@@ -464,7 +487,7 @@ class PrechargeState: public CarState {
     }
   private:
     long prechargeStartTime;
-    const long MAX_PRECHARGE_TIME = 3000; // milliseconds
+    const long MAX_PRECHARGE_TIME = 5000; // milliseconds
 };
 
 class OnState: public CarState {

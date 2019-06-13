@@ -22,8 +22,8 @@
 #include <SD.h>
 #include <HardwareSerial.h>
 
-//#define USE_SD_LOGGING
-#define USE_I2C_LOGGING
+#define USE_SD_LOGGING
+//#define USE_I2C_LOGGING
 #define LOGGER_I2C_ADDRESS 1
 #include <SD.h> // PaulStoffregen SD code. Card must be formatted as FAT32
 #include <TimeLib.h> // Teensy TimeLib
@@ -197,10 +197,28 @@ public:
     // Debug information
     long getLoopsCompleted();   // Not idempotent
 
+    static const byte MOTOR_CONTROLLER_ADDRESS_VOLTAGE_BUS = 0xEB;
+    const byte MOTOR_CONTROLLER_ADDRESS_VOLTAGE_OUTPUT = 0x8A;
+    const byte MOTOR_CONTROLLER_ADDRESS_CURRENT_PACK = 0x20;
+    const byte MOTOR_CONTROLLER_ADDRESS_CURRENT_PHASE = 0x5F;
+    const byte MOTOR_CONTROLLER_ADDRESS_MOTOR_TEMPERATURE = 0x49;
+    const byte MOTOR_CONTROLLER_ADDRESS_IGBT_TEMPERATURE = 0x4A;
+    const byte MOTOR_CONTROLLER_ADDRESS_SETPOINT_CURRENT = 0x22;
+    const byte MOTOR_CONTROLLER_ADDRESS_SETPOINT_TORQUE = 0x90;
+    const byte MOTOR_CONTROLLER_ADDRESS_RPM = 0xA8;
+    const byte MOTOR_CONTROLLER_ADDRESS_MOTOR_POSITION = 0x6D;  // TODO: Unused
+
+    unsigned char canArrEnableMotorController[3] = {regSysModeBits, 0x00 & 0xFF, 0x00 & 0xFF};
+    unsigned char canArrDisableMotorController[3] = {regSysModeBits, 0x04 & 0xFF, 0x00 & 0xFF};
+    unsigned char canArrStopMotorController[3] = {MOTOR_CONTROLLER_ADDRESS_SETPOINT_TORQUE, 0, 0}; // Sets the torque to 0  // TODO: Unused
+
+
     // Utility methods
     static float mapf(float in, float inMin, float inMax, float outMin, float outMax);
 
     static bool strContains(const String &, const String &);
+
+    static float getHumanReadableVoltage(short raw);
 protected:
     // Friend classes (usually VCUTask classes) which can access the protected VCU variables here
     friend class UpdateThrottleAnalogValues;
@@ -253,21 +271,6 @@ protected:
     void sendMotorControllerMessage(unsigned char *bytes, int messageLength);
     unsigned const int canMotorControllerAddress = 528; // 0x210
 
-    const byte MOTOR_CONTROLLER_ADDRESS_VOLTAGE_BUS = 0xEB;
-    const byte MOTOR_CONTROLLER_ADDRESS_VOLTAGE_OUTPUT = 0x8A;
-    const byte MOTOR_CONTROLLER_ADDRESS_CURRENT_PACK = 0x20;
-    const byte MOTOR_CONTROLLER_ADDRESS_CURRENT_PHASE = 0x5F;
-    const byte MOTOR_CONTROLLER_ADDRESS_MOTOR_TEMPERATURE = 0x49;
-    const byte MOTOR_CONTROLLER_ADDRESS_IGBT_TEMPERATURE = 0x4A;
-    const byte MOTOR_CONTROLLER_ADDRESS_SETPOINT_CURRENT = 0x22;
-    const byte MOTOR_CONTROLLER_ADDRESS_SETPOINT_TORQUE = 0x90;
-    const byte MOTOR_CONTROLLER_ADDRESS_RPM = 0xA8;
-    const byte MOTOR_CONTROLLER_ADDRESS_MOTOR_POSITION = 0x6D;  // TODO: Unused
-
-    unsigned char canArrEnableMotorController[3] = {regSysModeBits, 0x00 & 0xFF, 0x00 & 0xFF};
-    unsigned char canArrDisableMotorController[3] = {regSysModeBits, 0x04 & 0xFF, 0x00 & 0xFF};
-    unsigned char canArrStopMotorController[3] = {MOTOR_CONTROLLER_ADDRESS_SETPOINT_TORQUE, 0, 0}; // Sets the torque to 0  // TODO: Unused
-
     // unsigned char canRequestRPM[3] = {regReadBamocarData, 0xA8, 0x00}; // Request RPM once
     // unsigned char canRequestMotorPosition[3] = {regReadBamocarData, 0x6D, 0x00}; // Request position once
     // unsigned char canRequestMotorControllerCurrent[3] = {regReadBamocarData, 0xA8, 0x00}; // TODO
@@ -300,7 +303,10 @@ struct importantMotorControllerCanObject{
     long lastReadTime;
     byte values[MC_VALUES_HOLDER_SIZE];
 };
-static importantMotorControllerCanObject mcObjects [MC_REGISTER_ARRAY_LENGTH];
+extern importantMotorControllerCanObject mcObjects [MC_REGISTER_ARRAY_LENGTH];
+
+extern long LastMotorControllerBusVoltageReportTime;
+extern short LastMotorControllerBusVoltageRaw;
 
 
 #endif
