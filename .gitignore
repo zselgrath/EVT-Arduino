@@ -4,3 +4,5 @@
 VCU_Firmware/.vscode/extensions.json
 VCU_Firmware/.vscode/extensions.json
 VCU_Firmware/.vscode/settings.json
+VCU_Firmware/.clang_complete
+VCU_Firmware/.gcc-flags.json

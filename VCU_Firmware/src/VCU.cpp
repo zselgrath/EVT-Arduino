@@ -65,10 +65,46 @@ static void onReceive(int packetSize) {
   // Serial.println("B0: " + String(bytes[0]));
 
   // Serial.println();
+
+byte (*dataPtr)[8];
+
+  switch (CAN.packetId()) {
+    case BMS_CUSTOM_MESSAGE_1:
+      dataPtr = &bms.x03B.bytes;
+      Serial.println("Received BMS x03B");
+      break;
+    case BMS_CUSTOM_MESSAGE_2:
+      dataPtr = &bms.x3CB.bytes;
+      Serial.println("Received BMS x3CB");
+      break;
+    case BMS_CUSTOM_MESSAGE_3:
+      dataPtr = &bms.x6B2.bytes;
+      Serial.println("Received BMS x6B2");
+      break;
+    case BMS_CUSTOM_MESSAGE_4:
+      dataPtr = &bms.xxx5F4.bytes;
+      break;
+    case BMS_CUSTOM_MESSAGE_5:
+      dataPtr = &bms.xxx9F4.bytes;
+      break;
+    case BMS_CUSTOM_MESSAGE_6:
+      dataPtr = &bms.xxx0E5.bytes;
+      break;
+  }
+
+Serial.print("dataPtr points to: ");
+
+for (size_t i = 0; i < packetSize; i++) {
+  *dataPtr[i] = bytes[i];
+  Serial.print(bytes[i]);
+}
+
+  Serial.println("");
+
 };
 
 void VCU::init() {
-    // BEGIN CRITICAL SECTION. BE CAREFUL MODIFYING THIS CODE. 
+    // BEGIN CRITICAL SECTION. BE CAREFUL MODIFYING THIS CODE.
     this->setSafe();
     this->writePinStates(); // TODO: Determine if this is necessary before pinModes. Default states may be low.
 
@@ -128,7 +164,7 @@ void VCU::init() {
     pinMode(S_RIGHT_PIN, INPUT);
     pinMode(S_CENTER_PIN, INPUT);
     pinMode(START_BUTTON_PIN, INPUT_PULLUP);
-    
+
     //Teensy3Clock.set(__DATE__);
 //  Teensy3Clock.set(DateTime(F(__DATE__), F(__TIME__)));
 //  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
@@ -160,7 +196,7 @@ void VCU::init() {
     }
     this->loopsCompleted = 0;
 
-    // Register important registers to fetch. 
+    // Register important registers to fetch.
     // This is not a clean way to do this; each message type is its own concept, and really need their own classes. A map would also help.
     for(int i = 0; i < MC_REGISTER_ARRAY_LENGTH; i++){
       importantMotorControllerRegisters[i] = 0;
@@ -193,11 +229,11 @@ void VCU::init() {
 
     importantMotorControllerRegisters[7] = MOTOR_CONTROLLER_ADDRESS_SETPOINT_TORQUE;
     motorControllerRegisterNames[7] = "motorControllerTorqueSetpoint";
-    
+
     importantMotorControllerRegisters[8] = MOTOR_CONTROLLER_ADDRESS_RPM;
     motorControllerRegisterNames[8] = "motorControllerRpm";
 
-    
+
 }
 
 void VCU::sendDashText(String text){
@@ -288,7 +324,7 @@ void VCU::requestTransition(CarState::TransitionType transitionType){
       currentCarState = new OffState();
       currentCarState->enter(*this);
     }
-    // NOTE: We do not allow user transitions to ON_STATE. That can only be done by the precharge state update method, if its verification passes. 
+    // NOTE: We do not allow user transitions to ON_STATE. That can only be done by the precharge state update method, if its verification passes.
     interrupts();
   }
 };
@@ -345,8 +381,8 @@ bool VCU::carIsOff(){
   return this->currentCarState->getStateType() == CarState::CarStateType::OFF_STATE;
 }
 
-// This was thrown together for the start button and is different from the checks that the VCU does to determine if it is SAFE to start. 
-// This is essentially a debounce and it (and the main.cpp / .ino) needs to be reworked to cancel precharge. 
+// This was thrown together for the start button and is different from the checks that the VCU does to determine if it is SAFE to start.
+// This is essentially a debounce and it (and the main.cpp / .ino) needs to be reworked to cancel precharge.
 bool VCU::carCanStart(){
   if(carIsOff() && (this->currentCarState->getTimeInState() > MINIMUM_TRANSITION_DELAY)){
     return true;
@@ -394,25 +430,25 @@ float VCU::getBseADCFloat() {
 
 float VCU::getApps1Travel(){
   // These values are the ADC scale readings from the extremes of physical travel
-  float toReturn = this->mapf(this->getApps1ADCFloat(), 0.1604, 0.411, 0.0f, 1.0f); 
+  float toReturn = this->mapf(this->getApps1ADCFloat(), 0.1604, 0.411, 0.0f, 1.0f);
   return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
 }
 
 float VCU::getApps2Travel(){
   // These values are the ADC scale readings from the extremes of physical travel
-  float toReturn = this->mapf(this->getApps2ADCFloat(), 0.1128, 0.2792, 0.0f, 1.0f); 
+  float toReturn = this->mapf(this->getApps2ADCFloat(), 0.1128, 0.2792, 0.0f, 1.0f);
   return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
 }
 
 float VCU::getBseTravel(){
   // These values are the ADC scale readings from the extremes of physical travel
-  float toReturn = this->mapf(this->getBseADCFloat(), 0.1, 0.2, 0.0f, 1.0f); 
+  float toReturn = this->mapf(this->getBseADCFloat(), 0.1, 0.2, 0.0f, 1.0f);
   return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
 }
 
 bool VCU::acceleratorPedalIsPlausible(){
-    float apps1Scaled = this->getApps1Travel(); 
-    float apps2Scaled = this->getApps2Travel(); 
+    float apps1Scaled = this->getApps1Travel();
+    float apps2Scaled = this->getApps2Travel();
     bool apps1IsInRange = apps1Scaled > -0.1 && apps1Scaled < 1.1;
     bool apps2IsInRange = apps2Scaled > -0.1 && apps2Scaled < 1.1;
     bool appsAreInRange = apps1IsInRange && apps2IsInRange;
@@ -429,8 +465,8 @@ bool VCU::acceleratorPedalIsPlausible(){
 // Returns the APPS values from 0.0 to 1.0, performing the scaling as a fraction of their calibrated readings
 // and returning 0 if they are significantly different aka implausible (T 6.2.3).
 float VCU::getCheckedAndScaledAppsValue() {
-    float apps1Scaled = this->getApps1Travel(); 
-    float apps2Scaled = this->getApps2Travel(); 
+    float apps1Scaled = this->getApps1Travel();
+    float apps2Scaled = this->getApps2Travel();
     float physicalTravel = 0.0f;
     bool isImplausible = !(this->acceleratorPedalIsPlausible());
     if(isImplausible){

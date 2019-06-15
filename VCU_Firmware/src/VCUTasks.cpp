@@ -38,6 +38,7 @@ public:
     void execute() override {
       // Serial.println("Titles: " + getTitleString());
       Serial.println("MC: " + getMotorControllerString());
+      Serial.println("BMS: " + getBMSString());
     }
 
     explicit SaveDataToSD(VCU *aVCU) {
@@ -71,8 +72,32 @@ public:
           break;
         }
         short value = (receivedMotorControllerValues[i][1] << 8) + receivedMotorControllerValues[i][0]; // Not sure which is more or less significant (endianness)
-        toAppend = toAppend + ", " + String(value); 
+        toAppend = toAppend + ", " + String(value);
       }
+      return toAppend;
+    }
+
+    String getBMSString(){
+      String toAppend;
+
+      for(int i = 0; i < 8; i++){
+        short value = (bms.x03B.bytes[i]);
+        toAppend = toAppend + ", " + String(value);
+      }
+
+      for(int i = 0; i < 8; i++){
+        short value = (bms.x3CB.bytes[i]);
+        toAppend = toAppend + ", " + String(value);
+      }
+
+      for(int i = 0; i < 8; i++){
+        short value = (bms.x6B2.bytes[i]);
+        toAppend = toAppend + ", " + String(value);
+      }
+
+      Serial.print("To append: ");
+      Serial.println(toAppend);
+
       return toAppend;
     }
 
@@ -267,8 +292,8 @@ class PrechargeState: public CarState {
     CarStateType getStateType() override {
       return CarStateType::PRECHARGE_STATE;
     }
-    
-    // TODO: Determine if the car is safe and that precharge should proceed here 
+
+    // TODO: Determine if the car is safe and that precharge should proceed here
     static bool prechargeIsSafeToStart(VCU& vcu){
       if(!vcu.acceleratorPedalIsPlausible()){
         Serial.println("Not starting precharge because the accelerator value is not plausible.");
@@ -324,7 +349,7 @@ class OnState: public CarState {
       vcu.writePinStates(); // TODO: This might be fake
       vcu.enableMotorController();
       carStartTime = millis();
-      
+
     }
     CarStateType update(VCU& vcu) override {
       // TODO: Perform runtime safety validation here
@@ -350,7 +375,7 @@ class VehicleStateTask : public VCUTask {
 public:
     void execute() override {
       CarState::CarStateType state = pVCU->currentCarState->update(*pVCU);
-      
+
       if(state != CarState::CarStateType::SAME_STATE){
         delete pVCU->currentCarState;
         Serial.println("Change");
@@ -433,7 +458,7 @@ public:
     }
     explicit HandleDashUpdates(VCU *aVCU) {
         pVCU = aVCU;
-        
+
     }
 private:
     volatile unsigned int getExecutionDelay() override { return 100100; }
