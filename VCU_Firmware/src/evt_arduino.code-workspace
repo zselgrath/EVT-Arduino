@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "/Users/Nick/EVT-Arduino/VCU_Firmware"
+		}
+	],
+	"settings": {
+		"terminal.integrated.env.osx": {
+			"PATH": "/Users/Nick/.platformio/penv/bin:/Users/Nick/.platformio/penv:/usr/local/bin:/Library/Frameworks/Python.framework/Versions/3.7/bin:/Library/Frameworks/Python.framework/Versions/3.5/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/downloads/arm-none-eabi-gcc:/opt/X11/bin",
+			"PLATFORMIO_CALLER": "vscode"
+		}
+	}
+}

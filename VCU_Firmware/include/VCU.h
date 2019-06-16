@@ -302,7 +302,7 @@ private:
     FlexCAN canBus{};
 };
 
-struct
+struct bmsStruct
 {
 
   union
@@ -374,7 +374,9 @@ struct
     };
   } xxx0E5;
 
-} bms;
+};
+
+extern bmsStruct bms;
 
 // Motor Controller CAN registers, received value holders, etc.
 // These are static so that they can be accessed from the receive interrupt.

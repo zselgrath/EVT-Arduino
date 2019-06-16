@@ -6,6 +6,7 @@ importantMotorControllerCanObject mcObjects [MC_REGISTER_ARRAY_LENGTH];
 short LastMotorControllerBusVoltageRaw = 0;
 long LastMotorControllerBusVoltageReportTime = 0;
 
+bmsStruct bms;
 
 //#define Serial 0x0
 
@@ -113,7 +114,7 @@ for (size_t i = 0; i < packetSize; i++) {
 }
 
 void VCU::init() {
-    // BEGIN CRITICAL SECTION. BE CAREFUL MODIFYING THIS CODE. 
+    // BEGIN CRITICAL SECTION. BE CAREFUL MODIFYING THIS CODE.
     this->setSafe();
     this->writePinStates(); // TODO: Determine if this is necessary before pinModes. Default states may be low.
 
@@ -174,7 +175,7 @@ void VCU::init() {
     pinMode(S_RIGHT_PIN, INPUT);
     pinMode(S_CENTER_PIN, INPUT);
     pinMode(START_BUTTON_PIN, INPUT_PULLUP);
-    
+
     //Teensy3Clock.set(__DATE__);
 //  Teensy3Clock.set(DateTime(F(__DATE__), F(__TIME__)));
 //  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
@@ -189,7 +190,7 @@ void VCU::init() {
     }
     this->loopsCompleted = 0;
 
-    // Register important registers to fetch. 
+    // Register important registers to fetch.
     // This is not a clean way to do this; each message type is its own concept, and really need their own classes. A map would also help.
     for(int i = 0; i < MC_REGISTER_ARRAY_LENGTH; i++){
       mcObjects[i].registerLocation = 0;
@@ -226,7 +227,7 @@ void VCU::init() {
 
     mcObjects[7].registerLocation = MOTOR_CONTROLLER_ADDRESS_SETPOINT_TORQUE;
     mcObjects[7].name = "motorControllerTorqueSetpoint";
-    
+
     mcObjects[8].registerLocation = MOTOR_CONTROLLER_ADDRESS_RPM;
     mcObjects[8].name = "motorControllerRpm";
 
@@ -319,7 +320,7 @@ void VCU::requestShutdown() {
 void VCU::requestTransition(CarState::TransitionType transitionType){
   CarState::CarStateType state = currentCarState->handleUserInput(*this, transitionType);
   if(state != CarState::CarStateType::SAME_STATE){
-    
+
     if(state == CarState::CarStateType::PRECHARGE_STATE){
       long timePassedSinceLastUserTransitionRequest = millis() - this->lastUserTransitionRequest;
       if(timePassedSinceLastUserTransitionRequest < MINIMUM_TRANSITION_DELAY){
@@ -341,7 +342,7 @@ void VCU::requestTransition(CarState::TransitionType transitionType){
     }else{
       Serial.println("Unhandled user transition request!");
     }
-    // NOTE: We do not allow user transitions to ON_STATE. That can only be done by the precharge state update method, if its verification passes. 
+    // NOTE: We do not allow user transitions to ON_STATE. That can only be done by the precharge state update method, if its verification passes.
   }
 }
 
@@ -392,8 +393,8 @@ bool VCU::carIsOff(){
   return this->currentCarState->getStateType() == CarState::CarStateType::OFF_STATE;
 }
 
-// This was thrown together for the start button and is different from the checks that the VCU does to determine if it is SAFE to start. 
-// This is essentially a debounce and it (and the main.cpp / .ino) needs to be reworked to cancel precharge. 
+// This was thrown together for the start button and is different from the checks that the VCU does to determine if it is SAFE to start.
+// This is essentially a debounce and it (and the main.cpp / .ino) needs to be reworked to cancel precharge.
 bool VCU::carCanStart(){
   if(carIsOff() && (this->currentCarState->getTimeInState() > MINIMUM_TRANSITION_DELAY)){
     return true;
@@ -458,8 +459,8 @@ float VCU::getBseTravel(){
 }
 
 bool VCU::acceleratorPedalIsPlausible(){
-    float apps1Scaled = this->getApps1Travel(); 
-    float apps2Scaled = this->getApps2Travel(); 
+    float apps1Scaled = this->getApps1Travel();
+    float apps2Scaled = this->getApps2Travel();
     bool apps1IsInRange = apps1Scaled > -0.1 && apps1Scaled < 1.1;
     bool apps2IsInRange = apps2Scaled > -0.1 && apps2Scaled < 1.1;
     bool appsAreInRange = apps1IsInRange && apps2IsInRange;
@@ -476,8 +477,8 @@ bool VCU::acceleratorPedalIsPlausible(){
 // Returns the APPS values from 0.0 to 1.0, performing the scaling as a fraction of their calibrated readings
 // and returning 0 if they are significantly different aka implausible (T 6.2.3).
 float VCU::getCheckedAndScaledAppsValue() {
-    float apps1Scaled = this->getApps1Travel(); 
-    float apps2Scaled = this->getApps2Travel(); 
+    float apps1Scaled = this->getApps1Travel();
+    float apps2Scaled = this->getApps2Travel();
     float physicalTravel = 0.0f;
     bool isImplausible = !(this->acceleratorPedalIsPlausible());
     if(isImplausible){
