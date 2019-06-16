@@ -6,7 +6,8 @@ importantMotorControllerCanObject mcObjects [MC_REGISTER_ARRAY_LENGTH];
 short LastMotorControllerBusVoltageRaw = 0;
 long LastMotorControllerBusVoltageReportTime = 0;
 
-bmsStruct bms;
+bmsStructOne bms1;
+bmsStructTwo bms2;
 
 //#define Serial 0x0
 
@@ -14,37 +15,37 @@ bmsStruct bms;
 
 static void onReceive(int packetSize) {
   // received a packet
-  // Serial.print("\nReceived ");
+  Serial.print("\nReceived ");
 
-  // if (CAN.packetExtended()) {
-  //   Serial.print("extended ");
-  // }
+  if (CAN.packetExtended()) {
+    Serial.print("extended ");
+  }
 
-  // if (CAN.packetRtr()) {
-  //   // Remote transmission request, packet contains no data
-  //   Serial.print("RTR ");
-  // }
+  if (CAN.packetRtr()) {
+    // Remote transmission request, packet contains no data
+    Serial.print("RTR ");
+  }
 
-  // Serial.print("packet with id 0x");
-  // Serial.print(CAN.packetId(), HEX);
+  Serial.print("packet with id 0x");
+  Serial.print(CAN.packetId(), HEX);
 
   int currentByte = 0;
   byte bytes [packetSize];
 
   if (CAN.packetRtr()) {
-    // Serial.print(" and requested length ");
-    // Serial.println(CAN.packetDlc());
+    Serial.print(" and requested length ");
+    Serial.println(CAN.packetDlc());
   } else {
-    // Serial.print(" and length ");
-    // Serial.println(packetSize);
+    Serial.print(" and length ");
+    Serial.println(packetSize);
     // only print packet data for non-RTR packets
     while (CAN.available()) {
       bytes[currentByte] = ((byte)CAN.read());
       currentByte++;
-      // Serial.print(bytes[currentByte]);
-      // Serial.print(" ");
+      Serial.print(bytes[currentByte]);
+      Serial.print(" ");
     }
-    // Serial.println();
+    Serial.println();
   }
 
   if(bytes[0] == 0){
@@ -75,30 +76,70 @@ static void onReceive(int packetSize) {
   // Serial.println("B0: " + String(bytes[0]));
 
   // Serial.println();
+bool bmsRecv = false;
 byte (*dataPtr)[8];
 
   switch (CAN.packetId()) {
-    case BMS_CUSTOM_MESSAGE_1:
-      dataPtr = &bms.x03B.bytes;
-      Serial.println("Received BMS x03B");
+    case BMS_1_MESSAGE_1:
+      dataPtr = &bms1.message1.bytes;
+      Serial.println("BMS 1, Message 1");
+      bmsRecv = true;
       break;
-    case BMS_CUSTOM_MESSAGE_2:
-      dataPtr = &bms.x3CB.bytes;
-      Serial.println("Received BMS x3CB");
+    case BMS_1_MESSAGE_2:
+      dataPtr = &bms1.message2.bytes;
+      Serial.println("BMS 1, Message 2");
+      bmsRecv = true;
       break;
-    case BMS_CUSTOM_MESSAGE_3:
-      dataPtr = &bms.x6B2.bytes;
-      Serial.println("Received BMS x6B2");
+    case BMS_1_MESSAGE_3:
+      dataPtr = &bms1.message3.bytes;
+      Serial.println("BMS 1, Message 3");
+      bmsRecv = true;
       break;
-    case BMS_CUSTOM_MESSAGE_4:
-      dataPtr = &bms.xxx5F4.bytes;
+    case BMS_1_MESSAGE_4:
+      dataPtr = &bms1.message4.bytes;
+      Serial.println("BMS 1, Message 4");
+      bmsRecv = true;
       break;
-    case BMS_CUSTOM_MESSAGE_5:
-      dataPtr = &bms.xxx9F4.bytes;
+    case BMS_1_MESSAGE_5:
+      dataPtr = &bms1.message5.bytes;
+      Serial.println("BMS 1, Message 5");
+      bmsRecv = true;
       break;
-    case BMS_CUSTOM_MESSAGE_6:
-      dataPtr = &bms.xxx0E5.bytes;
+    case BMS_1_MESSAGE_6:
+      dataPtr = &bms1.message6.bytes;
+      Serial.println("BMS 1, Message 6");
+      bmsRecv = true;
       break;
+    // case BMS_2_MESSAGE_1:
+    //   dataPtr = &bms2.message1.bytes;
+    //   Serial.println("BMS 2, Message 1");
+    //   bmsRecv = true;
+    //   break;
+    // case BMS_2_MESSAGE_2:
+    //   dataPtr = &bms2.message2.bytes;
+    //   Serial.println("BMS 2, Message 2");
+    //   bmsRecv = true;
+    //   break;
+    // case BMS_2_MESSAGE_3:
+    //   dataPtr = &bms2.message3.bytes;
+    //   Serial.println("BMS 2, Message 3");
+    //   bmsRecv = true;
+    //   break;
+    // case BMS_2_MESSAGE_4:
+    //   dataPtr = &bms2.message4.bytes;
+    //   Serial.println("BMS 2, Message 4");
+    //   bmsRecv = true;
+    //   break;
+    // case BMS_2_MESSAGE_5:
+    //   dataPtr = &bms2.message5.bytes;
+    //   Serial.println("BMS 2, Message 5");
+    //   bmsRecv = true;
+    //   break;
+    // case BMS_2_MESSAGE_6:
+    //   dataPtr = &bms2.message6.bytes;
+    //   Serial.println("BMS 2, Message 6");
+    //   bmsRecv = true;
+    //   break;
   }
 
 Serial.print("dataPtr points to: ");

@@ -60,12 +60,20 @@
 #define START_BUTTON_PIN 15
 
 //BMS message ID's
-#define BMS_CUSTOM_MESSAGE_1 0x03b
-#define BMS_CUSTOM_MESSAGE_2 0x3cb
-#define BMS_CUSTOM_MESSAGE_3 0x6b2
-#define BMS_CUSTOM_MESSAGE_4 0x1806E5F4
-#define BMS_CUSTOM_MESSAGE_5 0x1806E9F4
-#define BMS_CUSTOM_MESSAGE_6 0x18FF50E5
+#define BMS_1_MESSAGE_1 0x03B
+#define BMS_1_MESSAGE_2 0x3CB
+#define BMS_1_MESSAGE_3 0x6B2
+#define BMS_1_MESSAGE_4 0x1806E5F4
+#define BMS_1_MESSAGE_5 0x1806E9F4
+#define BMS_1_MESSAGE_6 0x18FF50E5
+
+//TODO: replace with actual ID's; these are here to keep the compiler happy for now
+// #define BMS_2_MESSAGE_1
+// #define BMS_2_MESSAGE_2
+// #define BMS_2_MESSAGE_3
+// #define BMS_2_MESSAGE_4
+// #define BMS_2_MESSAGE_5
+// #define BMS_2_MESSAGE_6
 
 //#define DEFAULT_CAN_POLL_DELAY_TIME 10 // 10ms -> 100hz
 #define CAN_BAUD_RATE 500000
@@ -263,7 +271,7 @@ protected:
     void disableMotorController();
     void enableMotorController();
     void requestMotorControllerRegisterOnce(byte registerAddress);
-    
+
 //    void blockingRequest(unsigned char *bytes, int messageLength); // TODO: add a blocking CAN read
 
     // Other operational variables
@@ -302,8 +310,7 @@ private:
     FlexCAN canBus{};
 };
 
-struct bmsStruct
-{
+struct bmsStructOne {
 
   union
   {
@@ -315,7 +322,7 @@ struct bmsStruct
       int8_t checkSum;
       int8_t padding[3];
     };
-  } x03B;
+  } message1;
 
   union
   {
@@ -331,7 +338,7 @@ struct bmsStruct
       int8_t checkSum;
       int8_t padding;
     };
-  } x3CB;
+  } message2;
 
   union
   {
@@ -345,7 +352,7 @@ struct bmsStruct
       int8_t packAmpHours;
       int8_t checkSum;
     };
-  } x6B2;
+  } message3;
 
   union
   {
@@ -354,7 +361,7 @@ struct bmsStruct
     {
       //TODO
     };
-  } xxx5F4;
+  } message4;
 
   union
   {
@@ -363,7 +370,7 @@ struct bmsStruct
     {
       //TODO
     };
-  } xxx9F4;
+  } message5;
 
   union
   {
@@ -372,11 +379,71 @@ struct bmsStruct
     {
       //TODO
     };
-  } xxx0E5;
+  } message6;
 
 };
 
-extern bmsStruct bms;
+struct bmsStructTwo {
+
+  union
+  {
+    byte bytes[8];
+    struct
+    {
+
+    };
+  } message1;
+
+  union
+  {
+    byte bytes [8];
+    struct vars
+    {
+      //TODO
+    };
+  } message2;
+
+  union
+  {
+    byte bytes [8];
+    struct vars
+    {
+      //TODO
+    };
+  } message3;
+
+  union
+  {
+    byte bytes [8];
+    struct vars
+    {
+      //TODO
+    };
+  } message4;
+
+  union
+  {
+    byte bytes [8];
+    struct vars
+    {
+      //TODO
+    };
+  } message5;
+
+  union
+  {
+    byte bytes [8];
+    struct vars
+    {
+      //TODO
+    };
+  } message6;
+
+};
+
+extern bmsStructOne bms1;
+extern bmsStructTwo bms2;
+
 
 // Motor Controller CAN registers, received value holders, etc.
 // These are static so that they can be accessed from the receive interrupt.
