@@ -10,37 +10,37 @@
 
 static void onReceive(int packetSize) {
   // received a packet
-  // Serial.print("\nReceived ");
+  Serial.print("\nReceived ");
 
-  // if (CAN.packetExtended()) {
-  //   Serial.print("extended ");
-  // }
+  if (CAN.packetExtended()) {
+    Serial.print("extended ");
+  }
 
-  // if (CAN.packetRtr()) {
-  //   // Remote transmission request, packet contains no data
-  //   Serial.print("RTR ");
-  // }
+  if (CAN.packetRtr()) {
+    // Remote transmission request, packet contains no data
+    Serial.print("RTR ");
+  }
 
-  // Serial.print("packet with id 0x");
-  // Serial.print(CAN.packetId(), HEX);
+  Serial.print("packet with id 0x");
+  Serial.print(CAN.packetId(), HEX);
 
   int currentByte = 0;
   byte bytes [packetSize];
 
   if (CAN.packetRtr()) {
-    // Serial.print(" and requested length ");
-    // Serial.println(CAN.packetDlc());
+    Serial.print(" and requested length ");
+    Serial.println(CAN.packetDlc());
   } else {
-    // Serial.print(" and length ");
-    // Serial.println(packetSize);
-    // only print packet data for non-RTR packets
+    Serial.print(" and length ");
+    Serial.println(packetSize);
+    //only print packet data for non-RTR packets
     while (CAN.available()) {
       bytes[currentByte] = ((byte)CAN.read());
       currentByte++;
-      // Serial.print(bytes[currentByte]);
-      // Serial.print(" ");
+      Serial.print(bytes[currentByte]);
+      Serial.print(" ");
     }
-    // Serial.println();
+    Serial.println();
   }
 
   if(bytes[0] == 0){
