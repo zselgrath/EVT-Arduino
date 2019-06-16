@@ -6,8 +6,8 @@ importantMotorControllerCanObject mcObjects [MC_REGISTER_ARRAY_LENGTH];
 short LastMotorControllerBusVoltageRaw = 0;
 long LastMotorControllerBusVoltageReportTime = 0;
 
-bmsStructOne bms1;
-bmsStructTwo bms2;
+bmsStruct bms1;
+bmsStruct bms2;
 
 //#define Serial 0x0
 
@@ -15,43 +15,44 @@ bmsStructTwo bms2;
 
 static void onReceive(int packetSize) {
   // received a packet
-  Serial.print("\nReceived ");
+  // Serial.print("\nReceived ");
 
   if (CAN.packetExtended()) {
-    Serial.print("extended ");
+    // Serial.print("extended ");
   }
 
   if (CAN.packetRtr()) {
     // Remote transmission request, packet contains no data
-    Serial.print("RTR ");
+    // Serial.print("RTR ");
   }
 
-  Serial.print("packet with id 0x");
-  Serial.print(CAN.packetId(), HEX);
+  // Serial.print("packet with id 0x");
+  // Serial.print(CAN.packetId(), HEX);
 
   int currentByte = 0;
   byte bytes [packetSize];
 
   if (CAN.packetRtr()) {
-    Serial.print(" and requested length ");
-    Serial.println(CAN.packetDlc());
+    // Serial.print(" and requested length ");
+    // Serial.println(CAN.packetDlc());
   } else {
-    Serial.print(" and length ");
-    Serial.println(packetSize);
+    // Serial.print(" and length ");
+    // Serial.println(packetSize);
     // only print packet data for non-RTR packets
     while (CAN.available()) {
       bytes[currentByte] = ((byte)CAN.read());
       currentByte++;
-      Serial.print(bytes[currentByte]);
-      Serial.print(" ");
+      // Serial.print(bytes[currentByte]);
+      // Serial.print(" ");
     }
     Serial.println();
   }
 
-  if(bytes[0] == 0){
-    Serial.println("Received a packet where the first byte was 0. Unhandled.");
-    return;
-  }
+  // if(bytes[0] == 0){
+  //   Serial.println("Received a packet where the first byte was 0. Unhandled.");
+  //   return;
+  // }
+
   long currentTime = millis();
   for(int i = 0; i < MC_REGISTER_ARRAY_LENGTH; i++){
     if(bytes[0] == mcObjects[i].registerLocation){
@@ -142,15 +143,16 @@ byte (*dataPtr)[8];
     //   break;
   }
 
-Serial.print("dataPtr points to: ");
+if (bmsRecv) {
+  Serial.print("dataPtr points to: ");
+  for (size_t i = 0; i < packetSize; i++) {
+    *dataPtr[i] = bytes[i];
+    Serial.print(bytes[i]);
+  }
 
-for (size_t i = 0; i < packetSize; i++) {
-  *dataPtr[i] = bytes[i];
-  Serial.print(bytes[i]);
 }
 
   Serial.println("");
-
 
 }
 

@@ -15,7 +15,7 @@ public:
         pApps2Samples[this->oversamplingLocation] = analogRead(APPS_2_PIN);
         pBseSamples[this->oversamplingLocation] = analogRead(BSE_PIN);
         this->oversamplingLocation = (this->oversamplingLocation + 1) % OVERSAMPLING_BUFFER_SIZE;
-        
+
         bool startPressedHere = !digitalRead(START_BUTTON_PIN);
         if(startSignalIsActive != startPressedHere){
           // The start button transitioned
@@ -78,6 +78,15 @@ public:
 
       unsigned long end = micros();
       Serial.println("Time to log: " + String(end - start));
+
+      Serial.println("BMS 1: ");
+      Serial.println("Pack Current, Pack Voltage, pack DCL, pack CCL, Simulated SOC, High Temp, Low Temp, SOC, Resistance, Open Voltage, Capacity");
+      Serial.println(getBMSString1());
+
+      Serial.println("BMS 2: ");
+      Serial.println("Pack Current, Pack Voltage, pack DCL, pack CCL, Simulated SOC, High Temp, Low Temp, SOC, Resistance, Open Voltage, Capacity");
+      Serial.println(getBMSString2());
+
     }
 
     String getLogFileName(){
@@ -151,7 +160,7 @@ public:
         for(int i = 1; i < MC_REGISTER_ARRAY_LENGTH; i++){
           toAppend = toAppend + ", " + mcObjects[i].name;
         }
-        
+
 #ifdef USE_I2C_LOGGING
         Wire1.begin();
         Wire1.setClock(1000000);
@@ -209,10 +218,43 @@ public:
           break;
         }
         short value = (mcObjects[i].values[1] << 8) + mcObjects[i].values[0]; // Not sure which is more or less significant (endianness)
-        toAppend = toAppend + ", " + String(value); 
+        toAppend = toAppend + ", " + String(value);
       }
       return toAppend;
     }
+
+    String getBMSString1() {
+      return(
+          String(bms1.message1.packCurrent) + ","
+        + String(bms1.message1.packVoltage) + ","
+        + String(bms1.message2.packDCL) + ","
+        + String(bms1.message2.packCCL) + ","
+        + String(bms1.message2.simulatedSOC) + ","
+        + String(bms1.message2.highTemp) + ","
+        + String(bms1.message2.lowTemp) + ","
+        + String(bms1.message3.SOC) + ","
+        + String(bms1.message3.packResistance) + ","
+        + String(bms1.message3.packOpenVoltage) + ","
+        + String(bms1.message3.packAmpHours)
+      );
+    }
+
+
+        String getBMSString2() {
+          return(
+              String(bms2.message1.packCurrent) + ","
+            + String(bms2.message1.packVoltage) + ","
+            + String(bms2.message2.packDCL) + ","
+            + String(bms2.message2.packCCL) + ","
+            + String(bms2.message2.simulatedSOC) + ","
+            + String(bms2.message2.highTemp) + ","
+            + String(bms2.message2.lowTemp) + ","
+            + String(bms2.message3.SOC) + ","
+            + String(bms2.message3.packResistance) + ","
+            + String(bms2.message3.packOpenVoltage) + ","
+            + String(bms2.message3.packAmpHours)
+          );
+        }
 
     static int countAllFiles(){
       File thisDataFile = SD.open("/");
@@ -437,8 +479,8 @@ class PrechargeState: public CarState {
     CarStateType getStateType() override {
       return CarStateType::PRECHARGE_STATE;
     }
-    
-    // TODO: Determine if the car is safe and that precharge should proceed here 
+
+    // TODO: Determine if the car is safe and that precharge should proceed here
     static bool prechargeIsSafeToStart(VCU& vcu){
       if(!vcu.acceleratorPedalIsPlausible()){
         Serial.println("Not starting precharge because the accelerator value is not plausible.");
@@ -512,7 +554,7 @@ class OnState: public CarState {
       vcu.writePinStates(); // TODO: This might be fake
       vcu.enableMotorController();
       carStartTime = millis();
-      
+
     }
     CarStateType update(VCU& vcu) override {
       // TODO: Perform runtime safety validation here
@@ -538,10 +580,10 @@ class VehicleStateTask : public VCUTask {
 public:
     void execute() override {
       CarState::CarStateType state = pVCU->currentCarState->update(*pVCU);
-      
+
       if(state != CarState::CarStateType::SAME_STATE){
         Serial.println("Change");
-        
+
         if(state == CarState::CarStateType::ON_STATE){
           // The startup/precharge state machine has requested a transition to ON
           Serial.println("Change to on");
@@ -630,7 +672,7 @@ public:
     }
     explicit HandleDashUpdates(VCU *aVCU) {
         pVCU = aVCU;
-        
+
     }
 private:
     volatile unsigned int getExecutionDelay() override { return 100100; }

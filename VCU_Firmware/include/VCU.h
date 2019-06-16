@@ -67,7 +67,7 @@
 #define BMS_1_MESSAGE_5 0x1806E9F4
 #define BMS_1_MESSAGE_6 0x18FF50E5
 
-//TODO: replace with actual ID's; these are here to keep the compiler happy for now
+//TODO: define these
 // #define BMS_2_MESSAGE_1
 // #define BMS_2_MESSAGE_2
 // #define BMS_2_MESSAGE_3
@@ -310,7 +310,7 @@ private:
     FlexCAN canBus{};
 };
 
-struct bmsStructOne {
+struct bmsStruct {
 
   union
   {
@@ -327,7 +327,7 @@ struct bmsStructOne {
   union
   {
     byte bytes [8];
-    struct vars
+    struct
     {
       int8_t packDCL;
       int8_t packCCL;
@@ -343,7 +343,7 @@ struct bmsStructOne {
   union
   {
     byte bytes [8];
-    struct vars
+    struct
     {
       int8_t customFlag;
       int8_t SOC;
@@ -357,66 +357,8 @@ struct bmsStructOne {
   union
   {
     byte bytes [8];
-    struct vars
-    {
-      //TODO
-    };
-  } message4;
-
-  union
-  {
-    byte bytes [8];
-    struct vars
-    {
-      //TODO
-    };
-  } message5;
-
-  union
-  {
-    byte bytes [8];
-    struct vars
-    {
-      //TODO
-    };
-  } message6;
-
-};
-
-struct bmsStructTwo {
-
-  union
-  {
-    byte bytes[8];
     struct
     {
-
-    };
-  } message1;
-
-  union
-  {
-    byte bytes [8];
-    struct vars
-    {
-      //TODO
-    };
-  } message2;
-
-  union
-  {
-    byte bytes [8];
-    struct vars
-    {
-      //TODO
-    };
-  } message3;
-
-  union
-  {
-    byte bytes [8];
-    struct vars
-    {
       //TODO
     };
   } message4;
@@ -424,7 +366,7 @@ struct bmsStructTwo {
   union
   {
     byte bytes [8];
-    struct vars
+    struct
     {
       //TODO
     };
@@ -433,16 +375,15 @@ struct bmsStructTwo {
   union
   {
     byte bytes [8];
-    struct vars
+    struct
     {
       //TODO
     };
   } message6;
-
 };
 
-extern bmsStructOne bms1;
-extern bmsStructTwo bms2;
+extern bmsStruct bms1;
+extern bmsStruct bms2;
 
 
 // Motor Controller CAN registers, received value holders, etc.
