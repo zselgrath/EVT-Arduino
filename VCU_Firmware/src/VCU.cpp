@@ -74,6 +74,42 @@ static void onReceive(int packetSize) {
   // Serial.println("B0: " + String(bytes[0]));
 
   // Serial.println();
+byte (*dataPtr)[8];
+
+  switch (CAN.packetId()) {
+    case BMS_CUSTOM_MESSAGE_1:
+      dataPtr = &bms.x03B.bytes;
+      Serial.println("Received BMS x03B");
+      break;
+    case BMS_CUSTOM_MESSAGE_2:
+      dataPtr = &bms.x3CB.bytes;
+      Serial.println("Received BMS x3CB");
+      break;
+    case BMS_CUSTOM_MESSAGE_3:
+      dataPtr = &bms.x6B2.bytes;
+      Serial.println("Received BMS x6B2");
+      break;
+    case BMS_CUSTOM_MESSAGE_4:
+      dataPtr = &bms.xxx5F4.bytes;
+      break;
+    case BMS_CUSTOM_MESSAGE_5:
+      dataPtr = &bms.xxx9F4.bytes;
+      break;
+    case BMS_CUSTOM_MESSAGE_6:
+      dataPtr = &bms.xxx0E5.bytes;
+      break;
+  }
+
+Serial.print("dataPtr points to: ");
+
+for (size_t i = 0; i < packetSize; i++) {
+  *dataPtr[i] = bytes[i];
+  Serial.print(bytes[i]);
+}
+
+  Serial.println("");
+
+
 }
 
 void VCU::init() {

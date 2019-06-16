@@ -59,6 +59,14 @@
 #define S_CENTER_PIN 11
 #define START_BUTTON_PIN 15
 
+//BMS message ID's
+#define BMS_CUSTOM_MESSAGE_1 0x03b
+#define BMS_CUSTOM_MESSAGE_2 0x3cb
+#define BMS_CUSTOM_MESSAGE_3 0x6b2
+#define BMS_CUSTOM_MESSAGE_4 0x1806E5F4
+#define BMS_CUSTOM_MESSAGE_5 0x1806E9F4
+#define BMS_CUSTOM_MESSAGE_6 0x18FF50E5
+
 //#define DEFAULT_CAN_POLL_DELAY_TIME 10 // 10ms -> 100hz
 #define CAN_BAUD_RATE 500000
 #define MAXIMUM_PRECHARGE_TIME 2000000
@@ -293,6 +301,80 @@ private:
     float getApps2Travel();
     FlexCAN canBus{};
 };
+
+struct
+{
+
+  union
+  {
+    byte bytes[8];
+    struct
+    {
+      int16_t packCurrent;
+      int16_t packVoltage;
+      int8_t checkSum;
+      int8_t padding[3];
+    };
+  } x03B;
+
+  union
+  {
+    byte bytes [8];
+    struct vars
+    {
+      int8_t packDCL;
+      int8_t packCCL;
+      int8_t blank;
+      int8_t simulatedSOC;
+      int8_t highTemp;
+      int8_t lowTemp;
+      int8_t checkSum;
+      int8_t padding;
+    };
+  } x3CB;
+
+  union
+  {
+    byte bytes [8];
+    struct vars
+    {
+      int8_t customFlag;
+      int8_t SOC;
+      int16_t packResistance;
+      int16_t packOpenVoltage;
+      int8_t packAmpHours;
+      int8_t checkSum;
+    };
+  } x6B2;
+
+  union
+  {
+    byte bytes [8];
+    struct vars
+    {
+      //TODO
+    };
+  } xxx5F4;
+
+  union
+  {
+    byte bytes [8];
+    struct vars
+    {
+      //TODO
+    };
+  } xxx9F4;
+
+  union
+  {
+    byte bytes [8];
+    struct vars
+    {
+      //TODO
+    };
+  } xxx0E5;
+
+} bms;
 
 // Motor Controller CAN registers, received value holders, etc.
 // These are static so that they can be accessed from the receive interrupt.
