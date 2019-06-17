@@ -47,7 +47,7 @@ static void onReceive(int packetSize) {
   }
 
   if(bytes[0] == 0){
-    Serial.println("Received a packet where the first byte was 0. Unhandled.");
+    //Serial.println("Received a packet where the first byte was 0. Unhandled.");
     return;
   }
   long currentTime = millis();
