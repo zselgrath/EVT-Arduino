@@ -457,7 +457,7 @@ class PrechargeState: public CarState {
         Serial.println("We never got a bus voltage report.");
         return false; // We never got a MC bus voltage
       }
-      if(millis() > LastMotorControllerBusVoltageReportTime + 100L ){
+      if(millis() > LastMotorControllerBusVoltageReportTime + 200L ){
         Serial.println("The bus voltage is too old.");
         return false; // The bus voltage is too old
       }
@@ -512,7 +512,7 @@ class OnState: public CarState {
       vcu.writePinStates(); // TODO: This might be fake
       vcu.enableMotorController();
       carStartTime = millis();
-      
+      vcu.setTorqueValue(0);
     }
     CarStateType update(VCU& vcu) override {
       // TODO: Perform runtime safety validation here
@@ -523,11 +523,25 @@ class OnState: public CarState {
         return CarStateType::OFF_STATE;
       }
 
+      if(!getCarIsSafe(vcu)){
+        Serial.println("CAR IS NOT SAFE - DISABLING CAR.");
+        return CarStateType::OFF_STATE;
+      }
+
       if(currentRuntime > MAXIMUM_ON_TIME){
+        Serial.println("CAR HAS TIMED OUT - DISABLING CAR.");
         return CarStateType::OFF_STATE; // TODO: THIS IS FAKE
       }else{
         return CarStateType::SAME_STATE;
       }
+    }
+
+    static bool getCarIsSafe(VCU& vcu){
+      if(millis() > LastMotorControllerBusVoltageReportTime + 500L){
+        Serial.println("CRITICAL ERROR - The bus voltage is too old WHILE RUNNING.");
+        return false; // The bus voltage is too old
+      }
+      return true;
     }
 
     CarStateType getStateType() override {
