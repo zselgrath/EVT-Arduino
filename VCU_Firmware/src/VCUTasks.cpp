@@ -113,7 +113,7 @@ public:
       if (dataFile) {
         dataFile.println(stringToWrite);
         dataFile.close();
-        // Serial.println("L, " + String(fileNameToWriteTo) + ": " + stringToWrite);
+        Serial.println("L, " + String(fileNameToWriteTo) + ": " + stringToWrite);
       } else {
         // If the file isn't open, report an error:
         Serial.print("Error opening SD for " + String(fileNameToWriteTo));
@@ -518,6 +518,8 @@ class OnState: public CarState {
       // TODO: Perform runtime safety validation here
       long currentRuntime = millis() - carStartTime;
 
+      handleEv241Plausibility(vcu);
+
       if(currentRuntime > 500 && vcu.getSdcCurrentPos() < 700){
         Serial.println("The SDC was disabled; turning off.");
         return CarStateType::OFF_STATE;
@@ -536,10 +538,38 @@ class OnState: public CarState {
       }
     }
 
+    // Enable and disable the motor controller enable pin 
+    // This disables the motor controller if the pedals are > 25% and the brakes or activated or unplugged,
+    // and re-enables the motor controller if it was tripped, the travel is <5%, and the brake pedal is plausible,
+    void handleEv241Plausibility(VCU& vcu){
+      // Handle disabling the motor controller
+      if(vcu.getCappedPedalTravel() > 0.25F){
+        if(vcu.getBrakesAreActuated() || !vcu.brakePedalIsPlausible()){
+          Serial.println("EV2.4.1 PLAUSIBLILTY FAULT");
+          ev241IsTripped = true;
+          vcu.motorControllerActive = false;
+          vcu.writePinStates();
+          vcu.disableMotorController();
+        }
+        return;
+      }
+      // Handle re-enabling the motor controller
+      if(ev241IsTripped && vcu.getCappedPedalTravel() < 0.05F && vcu.brakePedalIsPlausible()){
+        Serial.println("EV2.4.1 Return-To-Normal");
+        vcu.motorControllerActive = true;
+        vcu.writePinStates();
+        vcu.enableMotorController();
+        ev241IsTripped = false;
+      }
+    }
+
     static bool getCarIsSafe(VCU& vcu){
       if(millis() > LastMotorControllerBusVoltageReportTime + 500L){
         Serial.println("CRITICAL ERROR - The bus voltage is too old WHILE RUNNING.");
         return false; // The bus voltage is too old
+      }
+      if(!vcu.acceleratorPedalIsPlausible()){
+        return false;
       }
       return true;
     }
@@ -552,6 +582,7 @@ class OnState: public CarState {
     }
   private:
     long carStartTime;
+    bool ev241IsTripped = false;
 };
 
 class VehicleStateTask : public VCUTask {
@@ -627,20 +658,33 @@ private:
 class HandleBrakeLight : public VCUTask {
 public:
     void execute() override {
-        if(pVCU->getBseTravel() > BSE_TRAVEL_BRAKE_LIGHT_THRESHOLD){
-          // TODO: Handle brake light turning on and off
+      if(pVCU->brakePedalIsPlausible()){
+        if(pVCU->getBrakesAreActuated()){
+          brakeLightIsActive = true;
         }else{
-
+          brakeLightIsActive = false;
         }
+      }else{
+        // Blink the brake light if the BSE value is invalid or unplugged
+        long currentTime = millis();
+        if(currentTime > lastInvalidBrakeTransitionTimestamp + 500L){
+          lastInvalidBrakeTransitionTimestamp = currentTime;
+          brakeLightIsActive = !brakeLightIsActive;
+        }
+      }
+
+      digitalWrite (BRAKELIGHT_12VO5, brakeLightIsActive);
     }
     explicit HandleBrakeLight(VCU *aVCU) {
         pVCU = aVCU;
-        // TODO: PinMode state for brake light
+        pinMode(BRAKELIGHT_12VO5, OUTPUT);
+        digitalWrite(BRAKELIGHT_12VO5, LOW);
     }
 private:
     volatile unsigned int getExecutionDelay() override { return 50200; }
-    const float BSE_TRAVEL_BRAKE_LIGHT_THRESHOLD = 0.05f;
     VCU *pVCU;
+    bool brakeLightIsActive = false;
+    long lastInvalidBrakeTransitionTimestamp = 0;
 };
 
 class HandleDashUpdates : public VCUTask {

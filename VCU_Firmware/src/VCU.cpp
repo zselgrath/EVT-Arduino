@@ -421,6 +421,11 @@ float VCU::getBseTravel(){
   return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
 }
 
+// Used to activate the brake light and to do EV2.4.1 plausibility check
+bool VCU::getBrakesAreActuated(){
+  return this->getBseTravel() > BSE_BRAKES_ACTIVE_THRESHOLD;
+}
+
 bool VCU::acceleratorPedalIsPlausible(){
     float apps1Scaled = this->getApps1Travel(); 
     float apps2Scaled = this->getApps2Travel(); 
@@ -435,6 +440,38 @@ bool VCU::acceleratorPedalIsPlausible(){
     bool apps1IsTooLow = (apps1Scaled < (apps2Scaled - 0.05));
     bool isPlausible = (!apps1IsTooHigh && !apps1IsTooLow);
     return isPlausible; // Return here if the values vary too significantly (5%)
+}
+
+bool VCU::brakePedalIsPlausible(){
+    float bseScaled = this->getBseTravel(); 
+    bool bseIsInRange = bseScaled > -0.1 && bseScaled < 1.1;
+    return bseIsInRange; // Return here if there's no way the value could be valid
+}
+
+// Get the raw pedal travel, without checks for plausibility
+// TODO: This is redundant with getCheckedAndScaledAppsValue() but since I don't have time to perform an actual test on the APPS I am duplicating code
+float VCU::getCappedPedalTravel(){
+    float apps1Scaled = this->getApps1Travel(); 
+    float apps2Scaled = this->getApps2Travel(); 
+    float physicalTravel = (apps1Scaled + apps2Scaled)/2.0f;
+    if(physicalTravel > 1.0f){
+      physicalTravel = 1.0f;
+    }
+    if(physicalTravel < 0.001f){
+      physicalTravel = 0.0f;
+    }
+    float toReturn = 0.0f;
+    // Scale based on a pedal deadzone
+    if(physicalTravel > PEDAL_DEADZONE){
+      toReturn = VCU::mapf(physicalTravel, PEDAL_DEADZONE, 1.0, 0.0f, 1.0f);  // We do not currently scale based on the full-travel deadzone because that could increase the torque requested by the driver. This may change.
+    }
+    // Make sure that the scaled value is possible
+    if(toReturn < 0.0f){
+      toReturn = 0.0f;
+    }else if(toReturn > 1.0){
+      toReturn = 1.0;
+    }
+    return toReturn;
 }
 
 // Returns the APPS values from 0.0 to 1.0, performing the scaling as a fraction of their calibrated readings

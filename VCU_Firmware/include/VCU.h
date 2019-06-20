@@ -51,6 +51,7 @@
 #define SDC_POSITIVE_CURRENT_PIN A10
 #define THERMISTOR_1_PIN A25     // The thermistors need pullup resistors (to 3.3v or aref) and likely capacitors (to gnd) // TODO: Unused?
 #define THERMISTOR_2_PIN A22 // TODO: Unused?
+#define BRAKELIGHT_12VO5 10
 // Teensy 5-way switch pin definitions
 #define S_UP_PIN 24
 #define S_DOWN_PIN 23
@@ -70,6 +71,7 @@
 //#define EEPROM_STARTS_COUNT_ADDRESS 32  // How many times a precharge sequence has intiated // TODO: Unused?
 
 #define PEDAL_DEADZONE 0.05f
+#define BSE_BRAKES_ACTIVE_THRESHOLD 0.05f
 
 // I2C and IMU
 #include <Adafruit_LSM9DS1.h>
@@ -168,6 +170,7 @@ public:
     void setDangerous();  // Turn on all dangerous settings -- Requires writeStates() be called afterward by user code  // TODO: Unused
     void writePinStates();
     bool acceleratorPedalIsPlausible();
+    bool brakePedalIsPlausible();
     bool carIsOn();
     bool carIsOff();
     bool carCanStart();
@@ -177,10 +180,12 @@ public:
 
     // Primary I/O methods
     float getCheckedAndScaledAppsValue(); // The average of the two APPS travels, or 0.0 if implausible
+    float getCappedPedalTravel();
     float getDeratedTorqueSetpoint();
     int getSdcCurrentPos();
     int getSdcCurrentNeg();
     float getBseTravel();
+    bool getBrakesAreActuated();
 
     void sendDashText(String text);
 
