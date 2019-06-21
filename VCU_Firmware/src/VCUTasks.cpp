@@ -130,6 +130,8 @@ public:
       toReturn.concat(String(" a1:").concat(pVCU->getApps1()));
       toReturn.concat(String(" a2:").concat(pVCU->getApps2()));
       toReturn.concat(String(" bse:").concat(pVCU->getBse()));
+      toReturn.concat(String(" bf:").concat(String(pVCU->getBseAdcFloat(), 6)));
+      toReturn.concat(String(" bt:").concat(String(pVCU->getBseTravel(), 6)));
       toReturn.concat(String(" a1f:").concat(String(pVCU->getApps1AdcFloat(), 6)));
       toReturn.concat(String(" a2f:").concat(String(pVCU->getApps2AdcFloat(), 6)));
       toReturn.concat(String(" a1T:").concat(String(pVCU->getApps1Travel(), 6)));
@@ -362,6 +364,7 @@ class OffState: public CarState {
       vcu.writePinStates();
       vcu.disableMotorController();
       stateStartTime = millis();
+      carIsReadyToDrive = false;
     }
     CarStateType update(VCU& vcu) override {
       // There's not much to update here when the car is off.
@@ -390,6 +393,7 @@ class PrechargeState: public CarState {
       return SAME_STATE;
     }
     void enter(VCU& vcu) override {
+      carIsReadyToDrive = false;
       Serial.println("Precharge entering.");
       this->prechargeStartTime = millis();
       bool prechargeCanContinue = prechargeIsSafeToStart(vcu);
@@ -513,12 +517,23 @@ class OnState: public CarState {
       vcu.enableMotorController();
       carStartTime = millis();
       vcu.setTorqueValue(0);
+      carIsReadyToDrive = false;
     }
     CarStateType update(VCU& vcu) override {
       // TODO: Perform runtime safety validation here
       long currentRuntime = millis() - carStartTime;
 
-      handleEv241Plausibility(vcu);
+      if(carIsReadyToDrive){
+        handleEv241Plausibility(vcu); // This can enable/disable the motor controller so we only do it if the car is ready to drive. This may change. 
+      }else{
+        determineReadyToDriveStatus(vcu);
+      }
+      if(millis() < (readyToDriveStartTime + 2500)){ // Play buzzer for 2.5S
+        digitalWrite(BUZZER_12VO6, HIGH);
+      }else{
+        digitalWrite(BUZZER_12VO6, LOW);
+      }
+      
 
       if(currentRuntime > 500 && vcu.getSdcCurrentPos() < 700){
         Serial.println("The SDC was disabled; turning off.");
@@ -535,6 +550,17 @@ class OnState: public CarState {
         return CarStateType::OFF_STATE; // TODO: THIS IS FAKE
       }else{
         return CarStateType::SAME_STATE;
+      }
+    }
+
+    void determineReadyToDriveStatus(VCU& vcu){
+      // Set the ready to drive status here
+      bool rtdPressed = !digitalRead(RTD_BUTTON); // Active-low, VCU has a pullup resistor
+      bool brakesPressed = vcu.getBrakesAreActuated();
+      if(rtdPressed && brakesPressed){
+        digitalWrite(BUZZER_12VO6, HIGH);
+        readyToDriveStartTime = millis();
+        carIsReadyToDrive = true;
       }
     }
 
@@ -581,7 +607,8 @@ class OnState: public CarState {
       return millis() - carStartTime;
     }
   private:
-    long carStartTime;
+    long carStartTime = 0;
+    long readyToDriveStartTime = 0;
     bool ev241IsTripped = false;
 };
 
@@ -762,7 +789,7 @@ public:
       //      }else{
       //        pVCU->setTorqueValue(0);
       //      }
-      if(pVCU->carIsOn()){
+      if(pVCU->readyToDrive()){
         pVCU->setTorqueValue((int) genericTorque);
       }else{
         pVCU->setTorqueValue(0);

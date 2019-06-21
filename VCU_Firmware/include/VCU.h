@@ -52,6 +52,8 @@
 #define THERMISTOR_1_PIN A25     // The thermistors need pullup resistors (to 3.3v or aref) and likely capacitors (to gnd) // TODO: Unused?
 #define THERMISTOR_2_PIN A22 // TODO: Unused?
 #define BRAKELIGHT_12VO5 10
+#define BUZZER_12VO6 14 // header D6
+#define RTD_BUTTON 16 // header D7, NC1
 // Teensy 5-way switch pin definitions
 #define S_UP_PIN 24
 #define S_DOWN_PIN 23
@@ -174,6 +176,7 @@ public:
     bool carIsOn();
     bool carIsOff();
     bool carCanStart();
+    bool readyToDrive();
 
     void requestStartup();
     void requestShutdown();
@@ -312,6 +315,7 @@ extern importantMotorControllerCanObject mcObjects [MC_REGISTER_ARRAY_LENGTH];
 
 extern long LastMotorControllerBusVoltageReportTime;
 extern short LastMotorControllerBusVoltageRaw;
+extern bool carIsReadyToDrive;
 
 
 #endif

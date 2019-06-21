@@ -5,6 +5,7 @@
 importantMotorControllerCanObject mcObjects [MC_REGISTER_ARRAY_LENGTH];
 short LastMotorControllerBusVoltageRaw = 0;
 long LastMotorControllerBusVoltageReportTime = 0;
+bool carIsReadyToDrive = false;
 
 
 //#define Serial 0x0
@@ -89,6 +90,9 @@ void VCU::init() {
     pinMode(MOTOR_CONTROLLER_ENABLE_PIN, OUTPUT);
     // pinMode(SD_CHIP_SELECT, OUTPUT);
     this->writePinStates();
+    pinMode(RTD_BUTTON, INPUT);
+    pinMode(BUZZER_12VO6, OUTPUT);
+    digitalWrite(BUZZER_12VO6, LOW);
 
     // CAN Setup
     CAN.setPins(CAN_CS_PIN, CAN_INT_PIN);
@@ -354,6 +358,10 @@ bool VCU::carIsOn(){
 
 bool VCU::carIsOff(){
   return this->currentCarState->getStateType() == CarState::CarStateType::OFF_STATE;
+}
+
+bool VCU::readyToDrive(){
+  return this->carIsOn() && carIsReadyToDrive;
 }
 
 // This was thrown together for the start button and is different from the checks that the VCU does to determine if it is SAFE to start. 
