@@ -6,3 +6,4 @@ VCU_Firmware/.vscode/extensions.json
 VCU_Firmware/.vscode/settings.json
 VCU_Firmware/cmake-build-debug/
 VCU_Firmware/.idea/
+*.json

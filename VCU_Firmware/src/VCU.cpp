@@ -413,19 +413,19 @@ float VCU::getBseAdcFloat() {
 
 float VCU::getApps1Travel(){
   // These values are the ADC scale readings from the extremes of physical travel
-  float toReturn = VCU::mapf(this->getApps1AdcFloat(), 0.1604, 0.411, 0.0f, 1.0f);
+  float toReturn = VCU::mapf(this->getApps1AdcFloat(), 0.156, 0.406, 0.0f, 1.0f);
   return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
 }
 
 float VCU::getApps2Travel(){
   // These values are the ADC scale readings from the extremes of physical travel
-  float toReturn = VCU::mapf(this->getApps2AdcFloat(), 0.1128, 0.2792, 0.0f, 1.0f);
+  float toReturn = VCU::mapf(this->getApps2AdcFloat(), 0.109, 0.284, 0.0f, 1.0f);
   return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
 }
 
 float VCU::getBseTravel(){
   // These values are the ADC scale readings from the extremes of physical travel
-  float toReturn = VCU::mapf(this->getBseAdcFloat(), 0.1, 0.2, 0.0f, 1.0f);
+  float toReturn = VCU::mapf(this->getBseAdcFloat(), 0.318, 0.420, 0.0f, 1.0f);
   return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
 }
 
@@ -452,7 +452,7 @@ bool VCU::acceleratorPedalIsPlausible(){
 
 bool VCU::brakePedalIsPlausible(){
     float bseScaled = this->getBseTravel(); 
-    bool bseIsInRange = bseScaled > -0.1 && bseScaled < 1.1;
+    bool bseIsInRange = bseScaled > -0.2 && bseScaled < 1.1;
     return bseIsInRange; // Return here if there's no way the value could be valid
 }
 
