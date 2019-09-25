@@ -96,12 +96,15 @@
 static File dataFile;
 // static const int SD_CHIP_SELECT = BUILTIN_SDCARD;
 #define SD_CHIP_SELECT BUILTIN_SDCARD
-// time of car boot, LV turned on
+
 static int sdLoggerStartTime; //uses now() function, returns seconds since epoch
-String sdLoggerStartString; //assembles string like library example which prints to serial terminal
+static String sdLoggerStartString; //assembles string like library example which prints to serial terminal
+static char fileName[23];
+/*
 String lastCarStartTime;    //ditto
 String lastCarRTDTime;      //ditto
-String lastCarShutdownTime; //ditto 
+String lastCarShutdownTime; //ditto
+*/  
 
 class VCUTask { 
 protected:

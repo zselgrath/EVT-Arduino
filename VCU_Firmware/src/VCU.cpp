@@ -149,11 +149,6 @@ void VCU::init() {
     pinMode(S_RIGHT_PIN, INPUT);
     pinMode(S_CENTER_PIN, INPUT);
     pinMode(START_BUTTON_PIN, INPUT_PULLUP);
-    
-    //Teensy3Clock.set(__DATE__);
-//  Teensy3Clock.set(DateTime(F(__DATE__), F(__TIME__)));
-//  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-    //RTC.adjust(DateTime(__DATE__, __TIME__));
 
     // Default variable initialization
     this->maxAdcValue = pow(2, ADC_READ_RESOLUTION);

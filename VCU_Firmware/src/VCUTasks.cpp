@@ -71,9 +71,10 @@ public:
       Serial.println("MC: " + mcString);
       String lineToWrite = mcString;
 
-      char fileName[23];
+      /* why is this here it does and undoes making it a string
       String asString = getLogFileName();
-      getLogFileName().toCharArray(fileName, 19);
+      getLogFileName().toCharArray(fileName, 23); //seems redundant but ok
+      */
 
       //write a single line to the log file
       logToFile(getGeneralReportString() + " mc: " + lineToWrite, fileName);
@@ -84,8 +85,6 @@ public:
     }
 
     String getLogFileName(){
-      char fileName[23] = "";
-      sprintf(fileName, "%s%s", fileName, ".txt");
       return String(fileName);
     };
 
@@ -171,35 +170,41 @@ public:
         }else{
           Serial.println("card initialized.");
         }
-        
-        //Making the file name based on current time
-        char fileName2[23] = ""; //increased to 23 to handle date string and extension
-        //sdLoggerStartTime = hour()*10000 + minute()*100 + SaveDataToSD::countAllFiles(); // http://i.imgur.com/Me04jVB.jpg
-        sdLoggerStartTime = now();
-        
-        //building the string version of the current time
-        sdLoggerStartString = getFullDateString();
 
-        //Creating the file with current date and .txt extension
-        sprintf(fileName2, "%s%s", sdLoggerStartString, ".txt");
-        dataFile = SD.open(fileName2, FILE_WRITE);
-        dataFile.close();
-        //Serial.print("FileName2: ");
-        //Serial.println(fileName2);
-
-        if(SD.exists(fileName2)){
-          Serial.println("Datafile exists!");
+        if (getLogFileName()!=""){ //check what the global file name is currently set to
+          //do nothing cause the file already exists
         }else{
-          Serial.println("Datafile doesn't exist.");
+          //Making the file name based on current time
+          char fileNameInitial[23] = ""; //increased to 23 to handle date string and extension
+          //sdLoggerStartTime = hour()*10000 + minute()*100 + SaveDataToSD::countAllFiles(); // http://i.imgur.com/Me04jVB.jpg
+          sdLoggerStartTime = now();
+
+          //building the string version of the current time
+          sdLoggerStartString = getFullDateString();
+
+          //Creating the file with current date and .txt extension
+          sprintf(fileNameInitial, "%s%s", sdLoggerStartString, ".txt");
+          dataFile = SD.open(fileNameInitial, FILE_WRITE);
+          dataFile.close();
+          //Serial.print("fileNameInitial: ");
+          //Serial.println(fileNameInitial);
+
+          if (SD.exists(fileNameInitial))
+          {
+            sprintf(fileName, "%s", fileNameInitial); //File has been created! Print the initial file name to the static file name
+            Serial.println("Datafile exists!");
+          }
+          else
+          {
+            Serial.println("Datafile doesn't exist.");
+          }
         }
 #endif
         
         //get the current file name for some reason
-        //char logFileName[23];
-        //getLogFileName().toCharArray(logFileName, 23);
-        logToFile("begin", fileName2);
-        logToFile(String(sdLoggerStartTime), fileName2);
-        logToFile(getTitleString(), fileName2);
+        logToFile("begin", fileName);
+        logToFile(String(sdLoggerStartTime), fileName);
+        logToFile(getTitleString(), fileName);
     }
 
     String getTitleString(){
