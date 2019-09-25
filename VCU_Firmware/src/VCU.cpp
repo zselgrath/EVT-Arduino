@@ -4,6 +4,7 @@
 
 importantMotorControllerCanObject mcObjects [MC_REGISTER_ARRAY_LENGTH];
 short LastMotorControllerBusVoltageRaw = 0;
+short LastMotorControllerPackCurrentRaw = 0;
 long LastMotorControllerBusVoltageReportTime = 0;
 bool carIsReadyToDrive = false;
 
@@ -62,7 +63,13 @@ static void onReceive(int packetSize) {
 
       if(mcObjects[i].registerLocation == VCU::MOTOR_CONTROLLER_ADDRESS_VOLTAGE_BUS){
         LastMotorControllerBusVoltageRaw = (bytes[2] << 8) + bytes[1];
-        Serial.println("V: " + String(VCU::getHumanReadableVoltage(LastMotorControllerBusVoltageRaw)));
+        Serial.println("                                                                V: " + String(VCU::getHumanReadableVoltage(LastMotorControllerBusVoltageRaw)));
+        LastMotorControllerBusVoltageReportTime = millis();
+      }
+      if (mcObjects[i].registerLocation == VCU::MOTOR_CONTROLLER_ADDRESS_CURRENT_PACK)
+      {
+        LastMotorControllerPackCurrentRaw = (bytes[2] << 8) + bytes[1];
+        Serial.println("                                                                I: " + String(VCU::getHumanReadableCurrent(LastMotorControllerPackCurrentRaw)));
         LastMotorControllerBusVoltageReportTime = millis();
       }
       break; // We found the register we needed to update, stop looping
@@ -411,21 +418,22 @@ float VCU::getBseAdcFloat() {
     return VCU::mapf(this->getBse(), 0, this->maxAdcValue, 0.0f, 1.0f);
 }
 
+//CALIBRATE PEDAL HERE
 float VCU::getApps1Travel(){
   // These values are the ADC scale readings from the extremes of physical travel
-  float toReturn = VCU::mapf(this->getApps1AdcFloat(), 0.156, 0.406, 0.0f, 1.0f);
+  float toReturn = VCU::mapf(this->getApps1AdcFloat(), 0.143, 0.399, 0.0f, 1.0f);
   return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
 }
 
 float VCU::getApps2Travel(){
   // These values are the ADC scale readings from the extremes of physical travel
-  float toReturn = VCU::mapf(this->getApps2AdcFloat(), 0.109, 0.284, 0.0f, 1.0f);
+  float toReturn = VCU::mapf(this->getApps2AdcFloat(), 0.092, 0.248, 0.0f, 1.0f);
   return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
 }
 
 float VCU::getBseTravel(){
   // These values are the ADC scale readings from the extremes of physical travel
-  float toReturn = VCU::mapf(this->getBseAdcFloat(), 0.318, 0.420, 0.0f, 1.0f);
+  float toReturn = VCU::mapf(this->getBseAdcFloat(), 0.304, 0.420, 0.0f, 1.0f);
   return toReturn; // This method may return values outside of the range of 0.0 .. 1.0
 }
 
@@ -444,15 +452,15 @@ bool VCU::acceleratorPedalIsPlausible(){
       return false; // Return here if there's no way the values could be valid, since one of them is very far out of valid range
     }
 
-    bool apps1IsTooHigh = (apps1Scaled > (apps2Scaled + 0.05)); // 0.05 is literally 5% of the calculated pedal travel percentage
-    bool apps1IsTooLow = (apps1Scaled < (apps2Scaled - 0.05));
+    bool apps1IsTooHigh = (apps1Scaled > (apps2Scaled + 0.10)); // 0.05 is literally 5% of the calculated pedal travel percentage
+    bool apps1IsTooLow = (apps1Scaled < (apps2Scaled - 0.10));
     bool isPlausible = (!apps1IsTooHigh && !apps1IsTooLow);
     return isPlausible; // Return here if the values vary too significantly (5%)
 }
 
 bool VCU::brakePedalIsPlausible(){
     float bseScaled = this->getBseTravel(); 
-    bool bseIsInRange = bseScaled > -0.2 && bseScaled < 1.1;
+    bool bseIsInRange = bseScaled > -0.25 && bseScaled < 1.1;
     return bseIsInRange; // Return here if there's no way the value could be valid
 }
 
@@ -490,10 +498,10 @@ float VCU::getCheckedAndScaledAppsValue() {
     float physicalTravel = 0.0f;
     bool isImplausible = !(this->acceleratorPedalIsPlausible());
     if(isImplausible){
-      // Serial.print("The APPS values differ by more than 5% - they are implausible.");
-      // Serial.println(String(toReturn) + ", " + String(apps1Scaled) + ", " + String(apps2Scaled));
-      // Serial.println(apps1Scaled > (apps2Scaled * 1.08));
-      // Serial.println(apps1Scaled < (apps2Scaled / 1.08));
+      Serial.print("The APPS values differ by more than 5% - they are implausible.");
+      Serial.println(String(apps1Scaled) + ", " + String(apps2Scaled));
+      Serial.println(apps1Scaled > (apps2Scaled * 1.08));
+      Serial.println(apps1Scaled < (apps2Scaled / 1.08));
       return 0.0f;
     }else{
       physicalTravel = (apps1Scaled + apps2Scaled)/2.0f;
@@ -590,6 +598,15 @@ float VCU::getHumanReadableVoltage(short in){
     float actualVoltage = percentOfVoltage * 300.0;
     toReturn = actualVoltage;
     return toReturn;
+}
+
+float VCU::getHumanReadableCurrent(short in)
+{
+  float toReturn;
+  float percentOfCurrent = ((float)in / 16384.0);
+  float actualCurrent = percentOfCurrent * 300.0;
+  toReturn = actualCurrent;
+  return toReturn;
 }
 
 // static bool enabled = false;

@@ -1,6 +1,6 @@
 #include "VCU.h"
 
-#define MAXIMUM_ON_TIME 600000 // 10 mins
+#define MAXIMUM_ON_TIME 3600000 // 1 HR
 
 // To add a new VCUTask, edit 3 things:
 // 1. Add to this class, by adding a new class extending/implementing VCUTask
@@ -63,26 +63,28 @@ private:
 class SaveDataToSD : public VCUTask {
 public:
     void execute() override {
+      //start counting how long writing to the log takes
       unsigned long start = micros();
-      // Serial.println("Titles: " + getTitleString());
+
+      //Print MC String to serial for debug
       String mcString = getMotorControllerString();
-      // Serial.println("MC: " + mcString);
-
+      Serial.println("MC: " + mcString);
       String lineToWrite = mcString;
-      char fileName[12];
+
+      char fileName[23];
       String asString = getLogFileName();
-      getLogFileName().toCharArray(fileName, 12);
+      getLogFileName().toCharArray(fileName, 19);
 
+      //write a single line to the log file
       logToFile(getGeneralReportString() + " mc: " + lineToWrite, fileName);
-      // logToFile(getGeneralReportString(), fileName);
 
+      //Count how long that took and print to serial for debug
       unsigned long end = micros();
       Serial.println("Time to log: " + String(end - start));
     }
 
     String getLogFileName(){
-      char fileName[12] = "";
-      sprintf(fileName, "%s%i", fileName, sdLoggerStartTime);
+      char fileName[23] = "";
       sprintf(fileName, "%s%s", fileName, ".txt");
       return String(fileName);
     };
@@ -121,6 +123,7 @@ public:
 #endif
     }
 
+    //String that reports all the data to the sdcard
     String getGeneralReportString(){
       String toReturn = "";
       int runRate = pVCU->getLoopsCompleted() * (1000000.0f / (getExecutionDelay() + 1.0f)); // avoid division by 0
@@ -168,25 +171,35 @@ public:
         }else{
           Serial.println("card initialized.");
         }
-        char fileName2[12] = "";
-        sdLoggerStartTime = hour()*10000 + minute()*100 + SaveDataToSD::countAllFiles(); // http://i.imgur.com/Me04jVB.jpg
-        sprintf(fileName2, "%s%i", fileName2, sdLoggerStartTime);
-        sprintf(fileName2, "%s%s", fileName2, ".txt");
-        Serial.print("FileName2: ");
-        Serial.println(fileName2);
+        
+        //Making the file name based on current time
+        char fileName2[23] = ""; //increased to 23 to handle date string and extension
+        //sdLoggerStartTime = hour()*10000 + minute()*100 + SaveDataToSD::countAllFiles(); // http://i.imgur.com/Me04jVB.jpg
+        sdLoggerStartTime = now();
+        
+        //building the string version of the current time
+        sdLoggerStartString = getFullDateString();
+
+        //Creating the file with current date and .txt extension
+        sprintf(fileName2, "%s%s", sdLoggerStartString, ".txt");
         dataFile = SD.open(fileName2, FILE_WRITE);
         dataFile.close();
+        //Serial.print("FileName2: ");
+        //Serial.println(fileName2);
+
         if(SD.exists(fileName2)){
           Serial.println("Datafile exists!");
         }else{
           Serial.println("Datafile doesn't exist.");
         }
 #endif
-        // Serial.println("Labels: " + getTitleString());
-        char logFileName[12];
-        getLogFileName().toCharArray(logFileName, 12);
-        logToFile("begin", logFileName);
-        logToFile(getTitleString(), logFileName);
+        
+        //get the current file name for some reason
+        //char logFileName[23];
+        //getLogFileName().toCharArray(logFileName, 23);
+        logToFile("begin", fileName2);
+        logToFile(String(sdLoggerStartTime), fileName2);
+        logToFile(getTitleString(), fileName2);
     }
 
     String getTitleString(){
@@ -214,6 +227,30 @@ public:
         toAppend = toAppend + ", " + String(value); 
       }
       return toAppend;
+    }
+
+    //Adds leading zero to a printed int if it needs one
+    String needsZero(int num)
+    {
+      String tempNum = "";
+      if (num < 10)
+      {
+        tempNum = "0";
+      }
+      tempNum.concat(num);
+      return tempNum;
+    }
+
+    //Gets and writes the current date and time to a string
+    String getFullDateString(){
+      String tempFullDateString = needsZero(month());
+      tempFullDateString.concat("-").concat(needsZero(day()));
+      tempFullDateString.concat("-").concat(needsZero(year()));
+      tempFullDateString.concat("@");
+      tempFullDateString.concat(needsZero(hour()));
+      tempFullDateString.concat("_").concat(needsZero(minute()));
+      tempFullDateString.concat("_").concat(needsZero(second()));
+      return tempFullDateString;
     }
 
     static int countAllFiles(){
@@ -558,7 +595,8 @@ class OnState: public CarState {
       bool rtdPressed = !digitalRead(RTD_BUTTON); // Active-low, VCU has a pullup resistor
       bool brakesPressed = vcu.getBrakesAreActuated();
       if(rtdPressed && brakesPressed){
-        digitalWrite(BUZZER_12VO6, HIGH);
+        Serial.println("***********CAR IS READY TO DRIVE***********");
+            digitalWrite(BUZZER_12VO6, HIGH);
         readyToDriveStartTime = millis();
         carIsReadyToDrive = true;
       }
@@ -571,7 +609,7 @@ class OnState: public CarState {
       // Handle disabling the motor controller
       if(vcu.getCappedPedalTravel() > 0.25F){
         if(vcu.getBrakesAreActuated() || !vcu.brakePedalIsPlausible()){
-          Serial.println("EV2.4.1 PLAUSIBLILTY FAULT");
+          Serial.println("***********EV2.4.1 PLAUSIBLILTY FAULT***********");
           ev241IsTripped = true;
           vcu.motorControllerActive = false;
           vcu.writePinStates();
@@ -581,7 +619,7 @@ class OnState: public CarState {
       }
       // Handle re-enabling the motor controller
       if(ev241IsTripped && vcu.getCappedPedalTravel() < 0.05F && vcu.brakePedalIsPlausible()){
-        Serial.println("EV2.4.1 Return-To-Normal");
+        Serial.println("***********EV2.4.1 Return-To-Normal");
         vcu.motorControllerActive = true;
         vcu.writePinStates();
         vcu.enableMotorController();
@@ -590,8 +628,11 @@ class OnState: public CarState {
     }
 
     static bool getCarIsSafe(VCU& vcu){
-      if(millis() > LastMotorControllerBusVoltageReportTime + 500L){
-        Serial.println("CRITICAL ERROR - The bus voltage is too old WHILE RUNNING.");
+      if(millis() > LastMotorControllerBusVoltageReportTime + 600L){
+        //Serial.println("CRITICAL ERROR - The bus voltage is too old WHILE RUNNING.");
+        Serial.print("***********BAMOCAR BUS TIMEOUT: ");
+        Serial.print(millis()-LastMotorControllerBusVoltageReportTime);
+        Serial.println("***********");
         return false; // The bus voltage is too old
       }
       if(!vcu.acceleratorPedalIsPlausible()){
@@ -656,10 +697,10 @@ private:
 class HandlePumpAndFan : public VCUTask {
 public:
     void execute() override {
-        this->setPumpOutput(0.0, false);
+        //this->setPumpOutput(0.0, false);
         // float looper = (millis() / 1000) % 11;
         // float adder = pVCU->mapf(looper, 0.0, 10.0, 0.0, 1.0);
-        // pVCU->setPumpOutput(adder);
+        this->setPumpOutput(0.5, true);
     }
     explicit HandlePumpAndFan(VCU *aVCU) {
         pVCU = aVCU;
@@ -673,7 +714,7 @@ public:
       byte valueToWrite = (byte)VCU::mapf(value, 0.0, 1.0, 0, 127);
       Wire.write(valueToWrite);
       Wire.endTransmission();
-      Serial.println("Setting pump to:" + String(valueToWrite));
+      //Serial.println("Setting pump to:" + String(valueToWrite));
     }
   }
 private:
@@ -694,7 +735,7 @@ public:
       }else{
         // Blink the brake light if the BSE value is invalid or unplugged
         long currentTime = millis();
-        if(currentTime > lastInvalidBrakeTransitionTimestamp + 500L){
+        if(currentTime > lastInvalidBrakeTransitionTimestamp + 200L){
           lastInvalidBrakeTransitionTimestamp = currentTime;
           brakeLightIsActive = !brakeLightIsActive;
         }
@@ -790,8 +831,10 @@ public:
       //        pVCU->setTorqueValue(0);
       //      }
       if(pVCU->readyToDrive()){
+        //Serial.println("GENERIC TORQUE " + String(int(genericTorque))); //DEBUG ONLY
         pVCU->setTorqueValue((int) genericTorque);
       }else{
+        //Serial.println("CAR NOT RTD"); //DEBUG ONLY
         pVCU->setTorqueValue(0);
       }
       //      if(pVCU->center()){

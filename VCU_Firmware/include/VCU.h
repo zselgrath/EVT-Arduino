@@ -17,7 +17,6 @@
 #include "CAN.h" // Originally by Sandeep Mistry, modified to use SPI1. Used for CAN1, going to the BMS's and Motor Controller
 #include "FlexCAN.h" // Used for CAN0, going to the front of the car
 #include "EEPROM.h"
-//#include <TimeLib.h>
 #include <Wire.h>         // Used by IMU
 #include <SD.h>
 #include <HardwareSerial.h>
@@ -73,7 +72,7 @@
 //#define EEPROM_STARTS_COUNT_ADDRESS 32  // How many times a precharge sequence has intiated // TODO: Unused?
 
 #define PEDAL_DEADZONE 0.05f
-#define BSE_BRAKES_ACTIVE_THRESHOLD 0.05f
+#define BSE_BRAKES_ACTIVE_THRESHOLD 0.15f
 
 // I2C and IMU
 #include <Adafruit_LSM9DS1.h>
@@ -97,9 +96,14 @@
 static File dataFile;
 // static const int SD_CHIP_SELECT = BUILTIN_SDCARD;
 #define SD_CHIP_SELECT BUILTIN_SDCARD
-static int sdLoggerStartTime;
+// time of car boot, LV turned on
+static int sdLoggerStartTime; //uses now() function, returns seconds since epoch
+String sdLoggerStartString; //assembles string like library example which prints to serial terminal
+String lastCarStartTime;    //ditto
+String lastCarRTDTime;      //ditto
+String lastCarShutdownTime; //ditto 
 
-class VCUTask {
+class VCUTask { 
 protected:
     friend class VCU;
 
@@ -207,7 +211,7 @@ public:
 
     static const byte MOTOR_CONTROLLER_ADDRESS_VOLTAGE_BUS = 0xEB;
     const byte MOTOR_CONTROLLER_ADDRESS_VOLTAGE_OUTPUT = 0x8A;
-    const byte MOTOR_CONTROLLER_ADDRESS_CURRENT_PACK = 0x20;
+    static const byte MOTOR_CONTROLLER_ADDRESS_CURRENT_PACK = 0x20;
     const byte MOTOR_CONTROLLER_ADDRESS_CURRENT_PHASE = 0x5F;
     const byte MOTOR_CONTROLLER_ADDRESS_MOTOR_TEMPERATURE = 0x49;
     const byte MOTOR_CONTROLLER_ADDRESS_IGBT_TEMPERATURE = 0x4A;
@@ -227,6 +231,8 @@ public:
     static bool strContains(const String &, const String &);
 
     static float getHumanReadableVoltage(short raw);
+    static float getHumanReadableCurrent(short raw);
+
 protected:
     // Friend classes (usually VCUTask classes) which can access the protected VCU variables here
     friend class UpdateThrottleAnalogValues;
