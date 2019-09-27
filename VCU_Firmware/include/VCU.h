@@ -17,6 +17,7 @@
 #include "CAN.h" // Originally by Sandeep Mistry, modified to use SPI1. Used for CAN1, going to the BMS's and Motor Controller
 #include "FlexCAN.h" // Used for CAN0, going to the front of the car
 #include "EEPROM.h"
+//#include <TimeLib.h>
 #include <Wire.h>         // Used by IMU
 #include <SD.h>
 #include <HardwareSerial.h>
@@ -96,17 +97,9 @@
 static File dataFile;
 // static const int SD_CHIP_SELECT = BUILTIN_SDCARD;
 #define SD_CHIP_SELECT BUILTIN_SDCARD
+static int sdLoggerStartTime;
 
-static int sdLoggerStartTime; //uses now() function, returns seconds since epoch
-static String sdLoggerStartString; //assembles string like library example which prints to serial terminal
-static char fileName[23];
-/*
-String lastCarStartTime;    //ditto
-String lastCarRTDTime;      //ditto
-String lastCarShutdownTime; //ditto
-*/  
-
-class VCUTask { 
+class VCUTask {
 protected:
     friend class VCU;
 

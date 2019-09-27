@@ -149,6 +149,11 @@ void VCU::init() {
     pinMode(S_RIGHT_PIN, INPUT);
     pinMode(S_CENTER_PIN, INPUT);
     pinMode(START_BUTTON_PIN, INPUT_PULLUP);
+    
+    //Teensy3Clock.set(__DATE__);
+//  Teensy3Clock.set(DateTime(F(__DATE__), F(__TIME__)));
+//  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    //RTC.adjust(DateTime(__DATE__, __TIME__));
 
     // Default variable initialization
     this->maxAdcValue = pow(2, ADC_READ_RESOLUTION);
@@ -413,7 +418,6 @@ float VCU::getBseAdcFloat() {
     return VCU::mapf(this->getBse(), 0, this->maxAdcValue, 0.0f, 1.0f);
 }
 
-//CALIBRATE PEDAL HERE
 float VCU::getApps1Travel(){
   // These values are the ADC scale readings from the extremes of physical travel
   float toReturn = VCU::mapf(this->getApps1AdcFloat(), 0.143, 0.399, 0.0f, 1.0f);
@@ -447,8 +451,8 @@ bool VCU::acceleratorPedalIsPlausible(){
       return false; // Return here if there's no way the values could be valid, since one of them is very far out of valid range
     }
 
-    bool apps1IsTooHigh = (apps1Scaled > (apps2Scaled + 0.10)); // 0.05 is literally 5% of the calculated pedal travel percentage
-    bool apps1IsTooLow = (apps1Scaled < (apps2Scaled - 0.10));
+    bool apps1IsTooHigh = (apps1Scaled > (apps2Scaled + 0.1)); // 0.05 is literally 5% of the calculated pedal travel percentage
+    bool apps1IsTooLow = (apps1Scaled < (apps2Scaled - 0.1));
     bool isPlausible = (!apps1IsTooHigh && !apps1IsTooLow);
     return isPlausible; // Return here if the values vary too significantly (5%)
 }
@@ -493,10 +497,10 @@ float VCU::getCheckedAndScaledAppsValue() {
     float physicalTravel = 0.0f;
     bool isImplausible = !(this->acceleratorPedalIsPlausible());
     if(isImplausible){
-      Serial.print("The APPS values differ by more than 5% - they are implausible.");
-      Serial.println(String(apps1Scaled) + ", " + String(apps2Scaled));
-      Serial.println(apps1Scaled > (apps2Scaled * 1.08));
-      Serial.println(apps1Scaled < (apps2Scaled / 1.08));
+    Serial.print("The APPS values differ by more than 5% - they are implausible.");
+    Serial.println(String(apps1Scaled) + ", " + String(apps2Scaled));
+    Serial.println(apps1Scaled > (apps2Scaled * 1.08));
+    Serial.println(apps1Scaled < (apps2Scaled / 1.08));
       return 0.0f;
     }else{
       physicalTravel = (apps1Scaled + apps2Scaled)/2.0f;
@@ -593,15 +597,6 @@ float VCU::getHumanReadableVoltage(short in){
     float actualVoltage = percentOfVoltage * 300.0;
     toReturn = actualVoltage;
     return toReturn;
-}
-
-float VCU::getHumanReadableCurrent(short in)
-{
-  float toReturn;
-  float percentOfCurrent = ((float)in / 16384.0);
-  float actualCurrent = percentOfCurrent * 300.0;
-  toReturn = actualCurrent;
-  return toReturn;
 }
 
 // static bool enabled = false;
