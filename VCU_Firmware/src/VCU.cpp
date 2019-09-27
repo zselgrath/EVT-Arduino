@@ -599,6 +599,15 @@ float VCU::getHumanReadableVoltage(short in){
     return toReturn;
 }
 
+float VCU::getHumanReadableCurrent(short in)
+{
+  float toReturn;
+  float percentOfCurrent = ((float)in / 16384.0);
+  float actualCurrent = percentOfCurrent * 300.0;
+  toReturn = actualCurrent;
+  return toReturn;
+}
+
 // static bool enabled = false;
 bool VCU::start() {
   // bool result = !digitalRead(START_BUTTON_PIN);
